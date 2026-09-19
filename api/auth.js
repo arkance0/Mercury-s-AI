@@ -11,14 +11,20 @@ if (!JWT_SECRET) {
 }
 
 function createToken(user) {
+  if (!JWT_SECRET) {
+    throw new Error('JWT_SECRET no está configurado.');
+  }
+
   return jwt.sign(
     {
       id: user.id,
       email: user.email,
-      is_admin: user.is_admin
+      is_admin: false
     },
     JWT_SECRET,
-    { expiresIn: '7d' }
+    {
+      expiresIn: '7d'
+    }
   );
 }
 
@@ -41,18 +47,13 @@ async function register(email, password) {
   );
 
   if (existing.rows.length > 0) {
-    throw new Error('Ese correo ya está registrado.');
+    throw new Error(
+      'Ese correo ya está registrado.'
+    );
   }
 
-  const passwordHash = await bcrypt.hash(password, 12);
-
-  const adminEmail = String(
-    process.env.ADMIN_EMAIL || ''
-  ).trim().toLowerCase();
-
-  const isAdmin =
-    adminEmail &&
-    email === adminEmail;
+  const passwordHash =
+    await bcrypt.hash(password, 12);
 
   const result = await query(
     `
@@ -62,7 +63,11 @@ async function register(email, password) {
       ($1, $2, $3)
     RETURNING id, email, is_admin, created_at
     `,
-    [email, passwordHash, isAdmin]
+    [
+      email,
+      passwordHash,
+      false
+    ]
   );
 
   const user = result.rows[0];
@@ -76,9 +81,20 @@ async function register(email, password) {
 async function login(email, password) {
   email = String(email || '').trim().toLowerCase();
 
+  if (!email || !password) {
+    throw new Error(
+      'Correo o contraseña incorrectos.'
+    );
+  }
+
   const result = await query(
     `
-    SELECT id, email, password_hash, is_admin, created_at
+    SELECT
+      id,
+      email,
+      password_hash,
+      is_admin,
+      created_at
     FROM users
     WHERE email = $1
     `,
@@ -86,25 +102,30 @@ async function login(email, password) {
   );
 
   if (result.rows.length === 0) {
-    throw new Error('Correo o contraseña incorrectos.');
+    throw new Error(
+      'Correo o contraseña incorrectos.'
+    );
   }
 
   const user = result.rows[0];
 
-  const valid = await bcrypt.compare(
-    password,
-    user.password_hash
-  );
+  const valid =
+    await bcrypt.compare(
+      password,
+      user.password_hash
+    );
 
   if (!valid) {
-    throw new Error('Correo o contraseña incorrectos.');
+    throw new Error(
+      'Correo o contraseña incorrectos.'
+    );
   }
 
   return {
     user: {
       id: user.id,
       email: user.email,
-      is_admin: user.is_admin,
+      is_admin: false,
       created_at: user.created_at
     },
     token: createToken(user)
@@ -112,50 +133,46 @@ async function login(email, password) {
 }
 
 function authenticate(req, res, next) {
-  const header = req.headers.authorization || '';
+  const header =
+    req.headers.authorization || '';
 
   if (!header.startsWith('Bearer ')) {
     return res.status(401).json({
       success: false,
-      error: 'Autenticación requerida.'
+      error:
+        'Autenticación requerida.'
     });
   }
 
-  const token = header.slice(7);
+  const token =
+    header.slice(7);
 
   try {
     if (!JWT_SECRET) {
-      throw new Error('JWT_SECRET no configurado.');
+      throw new Error(
+        'JWT_SECRET no configurado.'
+      );
     }
 
-    req.user = jwt.verify(
-      token,
-      JWT_SECRET
-    );
+    req.user =
+      jwt.verify(
+        token,
+        JWT_SECRET
+      );
 
     next();
-  } catch {
+
+  } catch (error) {
     return res.status(401).json({
       success: false,
-      error: 'Token inválido o expirado.'
+      error:
+        'Token inválido o expirado.'
     });
   }
-}
-
-function requireAdmin(req, res, next) {
-  if (!req.user || req.user.is_admin !== true) {
-    return res.status(403).json({
-      success: false,
-      error: 'Acceso de administrador requerido.'
-    });
-  }
-
-  next();
 }
 
 module.exports = {
   register,
   login,
-  authenticate,
-  requireAdmin
+  authenticate
 };
