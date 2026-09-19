@@ -1,412 +1,727 @@
 // Mercury's AI-Generator | core/engine.js
 // Motor central de generación de scripts multilingüe
 
-const promptParser = require('./prompt_parser');
-const validatorModule = require('./validator');
+const fs = require("fs");
+const path = require("path");
 
-const config = require('../config/settings.json');
-const languages = require('../config/languages.json');
+const promptParser = require("./prompt_parser");
+const validatorModule = require("./validator");
+
+const config = require("../config/settings.json");
+const languages = require("../config/languages.json");
 
 class MultiLangEngine {
-  constructor() {
-    this.generators = new Map();
+    constructor() {
+        this.generators = new Map();
 
-    this.maxRetries = config.maxRetries || 3;
-    this.timeout = config.timeout || 30000;
+        this.maxRetries = config.maxRetries || 3;
+        this.timeout = config.timeout || 30000;
 
-    this._loadGenerators();
-  }
-
-  // Carga los generadores disponibles
-  _loadGenerators() {
-    const fs = require('fs');
-    const path = require('path');
-
-    const generatorsDir = path.join(__dirname, '../generators');
-
-    if (!fs.existsSync(generatorsDir)) {
-      console.warn('⚠️ No existe la carpeta generators/');
-      return;
+        this._loadGenerators();
     }
 
-    const dirs = fs.readdirSync(generatorsDir, {
-      withFileTypes: true
-    });
+    // ==========================================
+    // CARGAR GENERADORES
+    // ==========================================
 
-    for (const entry of dirs) {
-      if (!entry.isDirectory()) continue;
+    _loadGenerators() {
+        const generatorsDir = path.join(
+            __dirname,
+            "../generators"
+        );
 
-      const dir = entry.name;
-      const genPath = path.join(
-        generatorsDir,
-        dir,
-        'index.js'
-      );
+        console.log("🔎 Buscando generadores en:");
+        console.log(generatorsDir);
 
-      if (!fs.existsSync(genPath)) continue;
+        if (!fs.existsSync(generatorsDir)) {
+            console.warn(
+                "⚠️ No existe la carpeta generators/"
+            );
 
-      try {
-        const generator = require(genPath);
+            return;
+        }
+
+        const entries = fs.readdirSync(
+            generatorsDir,
+            {
+                withFileTypes: true
+            }
+        );
+
+        console.log(
+            `📁 Elementos encontrados: ${entries.length}`
+        );
+
+        for (const entry of entries) {
+            if (!entry.isDirectory()) {
+                continue;
+            }
+
+            const directoryName =
+                entry.name;
+
+            const generatorDir =
+                path.join(
+                    generatorsDir,
+                    directoryName
+                );
+
+            console.log(
+                `🔍 Revisando: generators/${directoryName}`
+            );
+
+            const possibleFiles = [
+                "index.js",
+                "generator.js",
+                "generate.js"
+            ];
+
+            let generatorPath = null;
+
+            for (const file of possibleFiles) {
+                const testPath =
+                    path.join(
+                        generatorDir,
+                        file
+                    );
+
+                if (fs.existsSync(testPath)) {
+                    generatorPath = testPath;
+                    break;
+                }
+            }
+
+            if (!generatorPath) {
+                console.warn(
+                    `⚠️ No se encontró archivo de generador en ${directoryName}/`
+                );
+
+                continue;
+            }
+
+            try {
+                let generator =
+                    require(generatorPath);
+
+                /*
+                 * Soportar:
+                 *
+                 * module.exports = {
+                 *   generate() {}
+                 * }
+                 *
+                 * y:
+                 *
+                 * module.exports = function() {}
+                 */
+
+                if (
+                    typeof generator ===
+                    "function"
+                ) {
+                    generator = {
+                        generate: generator
+                    };
+                }
+
+                if (
+                    generator &&
+                    typeof generator.generate ===
+                    "function"
+                ) {
+                    const normalized =
+                        this._normalizeLanguage(
+                            directoryName
+                        );
+
+                    this.generators.set(
+                        normalized,
+                        generator
+                    );
+
+                    console.log(
+                        `✅ Generador cargado: ${directoryName} → ${normalized}`
+                    );
+                } else {
+                    console.warn(
+                        `⚠️ ${generatorPath} no exporta generate()`
+                    );
+                }
+
+            } catch (error) {
+                console.error(
+                    `❌ Error cargando ${directoryName}:`,
+                    error.message
+                );
+            }
+        }
+
+        console.log(
+            `🔥 ${this.generators.size} generadores activos`
+        );
+
+        if (this.generators.size === 0) {
+            console.warn(
+                "⚠️ NO HAY GENERADORES CARGADOS."
+            );
+
+            console.warn(
+                "Comprueba la carpeta generators/ y que cada lenguaje tenga index.js, generator.js o generate.js."
+            );
+        }
+    }
+
+    // ==========================================
+    // NORMALIZAR LENGUAJES
+    // ==========================================
+
+    _normalizeLanguage(language) {
+        if (!language) {
+            return "javascript";
+        }
+
+        const value =
+            String(language)
+                .trim()
+                .toLowerCase();
+
+        const aliases = {
+            js: "javascript",
+            node: "javascript",
+            nodejs: "javascript",
+
+            py: "python",
+
+            sh: "bash",
+            shell: "bash",
+
+            "c++": "cpp",
+
+            golang: "go",
+
+            rs: "rust",
+
+            ps: "powershell",
+            pwsh: "powershell",
+
+            mysql: "sql",
+            postgres: "sql",
+            postgresql: "sql"
+        };
+
+        return (
+            aliases[value] ||
+            value
+        );
+    }
+
+    // ==========================================
+    // GENERAR
+    // ==========================================
+
+    async generate(
+        prompt,
+        options = {}
+    ) {
+        if (
+            !prompt ||
+            typeof prompt !== "string"
+        ) {
+            throw new Error(
+                "El prompt debe ser un texto."
+            );
+        }
+
+        const startTime =
+            Date.now();
+
+        // Parsear prompt
+        let parsed;
+
+        try {
+            if (
+                promptParser &&
+                typeof promptParser.parse ===
+                "function"
+            ) {
+                parsed =
+                    promptParser.parse(
+                        prompt
+                    );
+            } else {
+                parsed = {
+                    language: "javascript",
+                    intent: "generic",
+                    complexity: "medium",
+                    raw: prompt
+                };
+            }
+        } catch (error) {
+            console.warn(
+                "⚠️ Error analizando prompt:",
+                error.message
+            );
+
+            parsed = {
+                language: "javascript",
+                intent: "generic",
+                complexity: "medium",
+                raw: prompt
+            };
+        }
+
+        const requestedLanguage =
+            options.language ||
+            parsed.language ||
+            "javascript";
+
+        const language =
+            this._normalizeLanguage(
+                requestedLanguage
+            );
+
+        const complexity =
+            options.complexity ||
+            parsed.complexity ||
+            "medium";
+
+        const obfuscate =
+            options.obfuscate === true;
+
+        const encrypt =
+            options.encrypt === true;
+
+        // ==========================================
+        // BUSCAR GENERADOR
+        // ==========================================
+
+        let generator =
+            this.generators.get(
+                language
+            );
+
+        // Intentar alias por si el parser devuelve otro nombre
+        if (!generator) {
+            const normalized =
+                this._normalizeLanguage(
+                    parsed.language
+                );
+
+            generator =
+                this.generators.get(
+                    normalized
+                );
+        }
+
+        if (!generator) {
+            const available =
+                Array.from(
+                    this.generators.keys()
+                );
+
+            throw new Error(
+                `Lenguaje "${requestedLanguage}" no soportado. ` +
+                `Generadores cargados: ${
+                    available.length
+                        ? available.join(", ")
+                        : "NINGUNO"
+                }`
+            );
+        }
+
+        let code = null;
+        let attempts = 0;
+
+        // ==========================================
+        // GENERACIÓN CON TIMEOUT
+        // ==========================================
+
+        while (
+            attempts <
+            this.maxRetries
+        ) {
+            try {
+                code =
+                    await Promise.race([
+                        Promise.resolve(
+                            generator.generate(
+                                parsed,
+                                {
+                                    complexity,
+                                    targetLanguage:
+                                        language,
+                                    prompt,
+                                    ...options
+                                }
+                            )
+                        ),
+
+                        new Promise(
+                            (_, reject) => {
+                                setTimeout(
+                                    () => {
+                                        reject(
+                                            new Error(
+                                                "La generación excedió el tiempo límite."
+                                            )
+                                        );
+                                    },
+                                    this.timeout
+                                );
+                            }
+                        )
+                    ]);
+
+                break;
+
+            } catch (error) {
+                attempts++;
+
+                console.warn(
+                    `⚠️ Reintento ${attempts}/${this.maxRetries}: ${error.message}`
+                );
+
+                if (
+                    attempts >=
+                    this.maxRetries
+                ) {
+                    throw error;
+                }
+            }
+        }
+
+        // ==========================================
+        // VALIDAR RESULTADO
+        // ==========================================
 
         if (
-          generator &&
-          typeof generator.generate === 'function'
+            typeof code !==
+            "string"
         ) {
-          this.generators.set(
-            dir.toLowerCase(),
-            generator
-          );
-
-          console.log(`✅ Generador cargado: ${dir}`);
-        } else {
-          console.warn(
-            `⚠️ ${dir}/index.js no exporta generate()`
-          );
+            throw new Error(
+                "El generador no devolvió código válido."
+            );
         }
-      } catch (error) {
-        console.error(
-          `❌ Error cargando generador ${dir}:`,
-          error.message
-        );
-      }
-    }
 
-    console.log(
-      `🔥 ${this.generators.size} generadores activos`
-    );
-  }
+        let validation = {
+            valid: true,
+            errors: [],
+            warnings: []
+        };
 
-  // Genera código a partir de un prompt
-  async generate(prompt, options = {}) {
-    if (!prompt || typeof prompt !== 'string') {
-      throw new Error('El prompt debe ser un texto.');
-    }
+        try {
+            if (
+                validatorModule &&
+                typeof validatorModule.validateCode ===
+                "function"
+            ) {
+                validation =
+                    validatorModule.validateCode(
+                        code,
+                        language
+                    );
+            } else if (
+                validatorModule &&
+                typeof validatorModule.validate ===
+                "function"
+            ) {
+                validation =
+                    validatorModule.validate(
+                        code,
+                        language
+                    );
+            }
+        } catch (error) {
+            console.warn(
+                "⚠️ Error durante validación:",
+                error.message
+            );
+        }
 
-    const startTime = Date.now();
+        // ==========================================
+        // OFUSCACIÓN
+        // ==========================================
 
-    // Prompt parser
-    const parsed =
-      typeof promptParser.parse === 'function'
-        ? promptParser.parse(prompt)
-        : {
-            language: 'javascript',
-            intent: 'generic',
-            complexity: 'medium',
-            raw: prompt
-          };
+        let finalCode =
+            code;
 
-    const targetLanguage =
-      options.language ||
-      parsed.language ||
-      'javascript';
+        if (obfuscate) {
+            finalCode =
+                await this._obfuscate(
+                    finalCode,
+                    language
+                );
+        }
 
-    const complexity =
-      options.complexity ||
-      parsed.complexity ||
-      'medium';
+        // ==========================================
+        // CIFRADO
+        // ==========================================
 
-    const obfuscate =
-      options.obfuscate === true;
+        if (encrypt) {
+            finalCode =
+                await this._encrypt(
+                    finalCode,
+                    language
+                );
+        }
 
-    const encrypt =
-      options.encrypt === true;
+        // ==========================================
+        // RESPUESTA
+        // ==========================================
 
-    const language =
-      targetLanguage.toLowerCase();
+        return {
+            success: true,
 
-    // Verificar generador
-    if (!this.generators.has(language)) {
-      const available =
-        Array.from(this.generators.keys());
+            language,
 
-      throw new Error(
-        `Lenguaje "${targetLanguage}" no soportado. ` +
-        `Disponibles: ${available.join(', ')}`
-      );
-    }
+            prompt,
 
-    const generator =
-      this.generators.get(language);
+            code: finalCode,
 
-    let code = null;
-    let attempts = 0;
+            metadata: {
+                linesOfCode:
+                    finalCode.split("\n")
+                        .length,
 
-    // Generación con reintentos
-    while (attempts < this.maxRetries) {
-      try {
-        code = await Promise.race([
-          generator.generate(parsed, {
-            complexity,
-            targetLanguage,
-            ...options
-          }),
+                characters:
+                    finalCode.length,
 
-          new Promise((_, reject) => {
-            setTimeout(() => {
-              reject(
-                new Error(
-                  'La generación excedió el tiempo límite.'
+                complexity,
+
+                generationTime:
+                    Date.now() -
+                    startTime,
+
+                validation,
+
+                obfuscated:
+                    obfuscate,
+
+                encrypted:
+                    encrypt
+            },
+
+            suggestions:
+                this._getSuggestions(
+                    language,
+                    parsed.intent
                 )
-              );
-            }, this.timeout);
-          })
-        ]);
+        };
+    }
 
-        break;
+    // ==========================================
+    // MULTILENGUAJE
+    // ==========================================
 
-      } catch (error) {
-        attempts++;
-
-        if (attempts >= this.maxRetries) {
-          throw error;
+    async generateMulti(
+        prompt,
+        languagesArray,
+        options = {}
+    ) {
+        if (
+            !Array.isArray(
+                languagesArray
+            )
+        ) {
+            throw new Error(
+                "languagesArray debe ser un array."
+            );
         }
 
-        console.warn(
-          `⚠️ Reintento ${attempts}/${this.maxRetries}`
-        );
-      }
-    }
+        const results = {};
 
-    if (typeof code !== 'string') {
-      throw new Error(
-        'El generador no devolvió código válido.'
-      );
-    }
+        await Promise.all(
+            languagesArray.map(
+                async requestedLanguage => {
+                    try {
+                        const language =
+                            this._normalizeLanguage(
+                                requestedLanguage
+                            );
 
-    // Validación
-    let validation = {
-      valid: true,
-      errors: [],
-      warnings: []
-    };
+                        results[
+                            language
+                        ] =
+                            await this.generate(
+                                prompt,
+                                {
+                                    ...options,
+                                    language
+                                }
+                            );
 
-    try {
-      if (
-        typeof validatorModule.validateCode ===
-        'function'
-      ) {
-        validation =
-          validatorModule.validateCode(
-            code,
-            targetLanguage
-          );
-      } else if (
-        typeof validatorModule.validate ===
-        'function'
-      ) {
-        validation =
-          validatorModule.validate(
-            code,
-            targetLanguage
-          );
-      }
-    } catch (error) {
-      console.warn(
-        '⚠️ Error durante la validación:',
-        error.message
-      );
-    }
-
-    // Ofuscación opcional
-    let finalCode = code;
-
-    if (obfuscate) {
-      finalCode =
-        await this._obfuscate(
-          finalCode,
-          language
-        );
-    }
-
-    // Cifrado opcional
-    if (encrypt) {
-      finalCode =
-        await this._encrypt(
-          finalCode,
-          language
-        );
-    }
-
-    return {
-      success: true,
-      language: targetLanguage,
-      prompt,
-      code: finalCode,
-
-      metadata: {
-        linesOfCode:
-          finalCode.split('\n').length,
-
-        characters:
-          finalCode.length,
-
-        complexity,
-
-        generationTime:
-          Date.now() - startTime,
-
-        validation,
-
-        obfuscated: obfuscate,
-        encrypted: encrypt
-      },
-
-      suggestions:
-        this._getSuggestions(
-          targetLanguage,
-          parsed.intent
-        )
-    };
-  }
-
-  // Generar en varios lenguajes
-  async generateMulti(
-    prompt,
-    languagesArray,
-    options = {}
-  ) {
-    const results = {};
-
-    if (!Array.isArray(languagesArray)) {
-      throw new Error(
-        'languagesArray debe ser un array.'
-      );
-    }
-
-    await Promise.all(
-      languagesArray.map(
-        async language => {
-          try {
-            results[language] =
-              await this.generate(
-                prompt,
-                {
-                  ...options,
-                  language
+                    } catch (error) {
+                        results[
+                            requestedLanguage
+                        ] = {
+                            success: false,
+                            error:
+                                error.message
+                        };
+                    }
                 }
-              );
-          } catch (error) {
-            results[language] = {
-              success: false,
-              error: error.message
-            };
-          }
+            )
+        );
+
+        return results;
+    }
+
+    // ==========================================
+    // LENGUAJES
+    // ==========================================
+
+    getSupportedLanguages() {
+        return Array.from(
+            this.generators.keys()
+        ).map(language => ({
+            name: language,
+
+            info:
+                languages[language] || {
+                    name: language,
+                    description:
+                        "Generador de código"
+                }
+        }));
+    }
+
+    // ==========================================
+    // OFUSCAR
+    // ==========================================
+
+    async _obfuscate(
+        code,
+        language
+    ) {
+        const obfuscatorPath =
+            path.join(
+                __dirname,
+                "../generators",
+                language,
+                "obfuscator.js"
+            );
+
+        if (
+            !fs.existsSync(
+                obfuscatorPath
+            )
+        ) {
+            console.warn(
+                `⚠️ No existe obfuscator para ${language}`
+            );
+
+            return code;
         }
-      )
-    );
 
-    return results;
-  }
+        const obfuscator =
+            require(
+                obfuscatorPath
+            );
 
-  // Lenguajes disponibles
-  getSupportedLanguages() {
-    return Array.from(
-      this.generators.keys()
-    ).map(language => ({
-      name: language,
-
-      info:
-        languages[language] || {
-          description:
-            'Generador de código'
+        if (
+            !obfuscator ||
+            typeof obfuscator.obfuscate !==
+            "function"
+        ) {
+            return code;
         }
-    }));
-  }
 
-  // Ofuscación
-  async _obfuscate(code, language) {
-    const path = require('path');
-    const fs = require('fs');
+        return obfuscator.obfuscate(
+            code
+        );
+    }
 
-    const obfuscatorPath =
-      path.join(
-        __dirname,
-        '../generators',
+    // ==========================================
+    // CIFRAR
+    // ==========================================
+
+    async _encrypt(
+        code,
+        language
+    ) {
+        const crypto =
+            require("../utils/crypto");
+
+        if (
+            !crypto ||
+            typeof crypto.encrypt !==
+            "function"
+        ) {
+            throw new Error(
+                "crypto.js no exporta encrypt()."
+            );
+        }
+
+        return crypto.encrypt(
+            code,
+            language
+        );
+    }
+
+    // ==========================================
+    // SUGERENCIAS
+    // ==========================================
+
+    _getSuggestions(
         language,
-        'obfuscator.js'
-      );
-
-    if (!fs.existsSync(obfuscatorPath)) {
-      console.warn(
-        `⚠️ No existe obfuscator para ${language}`
-      );
-
-      return code;
-    }
-
-    const obfuscator =
-      require(obfuscatorPath);
-
-    if (
-      typeof obfuscator.obfuscate !==
-      'function'
+        intent
     ) {
-      return code;
+        const suggestions = {
+            javascript: {
+                api:
+                    "Añade manejo de errores y validación de entradas.",
+                database:
+                    "Usa consultas parametrizadas.",
+                automation:
+                    "Añade logs y límites de ejecución.",
+                generic:
+                    "Revisa el código y añade pruebas."
+            },
+
+            python: {
+                api:
+                    "Valida las entradas y controla los errores.",
+                database:
+                    "Utiliza consultas parametrizadas.",
+                automation:
+                    "Añade logging y manejo de excepciones.",
+                generic:
+                    "Añade pruebas unitarias."
+            },
+
+            bash: {
+                automation:
+                    "Valida argumentos antes de ejecutar comandos.",
+                generic:
+                    "Usa manejo de errores y evita comandos destructivos."
+            },
+
+            go: {
+                api:
+                    "Valida las entradas y controla errores.",
+                network:
+                    "Añade timeouts y límites de conexión.",
+                generic:
+                    "Añade pruebas y manejo de errores."
+            },
+
+            rust: {
+                network:
+                    "Controla errores y límites de recursos.",
+                generic:
+                    "Aprovecha Result y Option para manejar errores."
+            }
+        };
+
+        return (
+            suggestions[language]?.[
+                intent
+            ] ||
+            suggestions[language]?.generic ||
+            "Revisa el código generado antes de ejecutarlo."
+        );
     }
-
-    return obfuscator.obfuscate(code);
-  }
-
-  // Cifrado
-  async _encrypt(code, language) {
-    const crypto =
-      require('../utils/crypto');
-
-    if (
-      typeof crypto.encrypt !==
-      'function'
-    ) {
-      throw new Error(
-        'crypto.js no exporta encrypt().'
-      );
-    }
-
-    return crypto.encrypt(
-      code,
-      language
-    );
-  }
-
-  // Sugerencias seguras
-  _getSuggestions(language, intent) {
-    const suggestions = {
-      javascript: {
-        api: 'Añade manejo de errores y validación de entradas.',
-        database: 'Usa consultas parametrizadas.',
-        automation: 'Añade logs y límites de ejecución.',
-        generic: 'Revisa el código y añade pruebas.'
-      },
-
-      python: {
-        api: 'Valida las entradas y controla los errores.',
-        database: 'Utiliza consultas parametrizadas.',
-        automation: 'Añade logging y manejo de excepciones.',
-        generic: 'Añade pruebas unitarias.'
-      },
-
-      bash: {
-        automation: 'Valida argumentos antes de ejecutar comandos.',
-        generic: 'Usa manejo de errores y evita comandos destructivos.'
-      },
-
-      go: {
-        api: 'Valida las entradas y controla errores.',
-        network: 'Añade timeouts y límites de conexión.',
-        generic: 'Añade pruebas y manejo de errores.'
-      },
-
-      rust: {
-        network: 'Controla errores y límites de recursos.',
-        generic: 'Aprovecha Result y Option para manejar errores.'
-      }
-    };
-
-    return (
-      suggestions[language]?.[intent] ||
-      suggestions[language]?.generic ||
-      'Revisa el código generado antes de ejecutarlo.'
-    );
-  }
 }
 
-module.exports = new MultiLangEngine();
+module.exports =
+    new MultiLangEngine();
