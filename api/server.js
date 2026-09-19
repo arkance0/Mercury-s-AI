@@ -1,6 +1,7 @@
 const express = require('express');
 const engine = require('../core/engine');
 const { initDatabase } = require('./init-db');
+const { query } = require('./db');
 const {
   register,
   login,
@@ -12,9 +13,9 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.json({ limit: '1mb' }));
 
-// ==========================================
+// ======================================================
 // DATABASE
-// ==========================================
+// ======================================================
 
 const databaseReady = initDatabase()
   .then(() => {
@@ -32,126 +33,460 @@ app.use(async (req, res, next) => {
   next();
 });
 
-// ==========================================
-// HOME
-// ==========================================
+// ======================================================
+// LOGIN / REGISTER PAGE
+// ======================================================
 
 app.get('/', (req, res) => {
   res.send(`
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport"
-        content="width=device-width, initial-scale=1.0">
+<meta charset="UTF-8">
+<meta name="viewport"
+      content="width=device-width, initial-scale=1.0">
 
-  <title>Mercury's AI-Generator</title>
+<title>Mercury's AI-Generator</title>
 
-  <style>
-    * {
-      box-sizing: border-box;
-    }
+<style>
 
-    body {
-      margin: 0;
-      min-height: 100vh;
-      background: #0b0b0f;
-      color: #ffffff;
-      font-family: Arial, sans-serif;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      padding: 20px;
-    }
+* {
+  box-sizing: border-box;
+}
 
-    .container {
-      width: 100%;
-      max-width: 430px;
-      background: #15151c;
-      border: 1px solid #292936;
-      border-radius: 18px;
-      padding: 25px;
-      box-shadow: 0 15px 50px rgba(0,0,0,.4);
-    }
+body {
+  margin: 0;
+  background: #0b0b10;
+  color: #fff;
+  font-family: Arial, sans-serif;
+}
 
-    h1 {
-      margin: 0 0 8px;
-      text-align: center;
-      font-size: 26px;
-    }
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
 
-    .subtitle {
-      text-align: center;
-      color: #9999aa;
-      margin-bottom: 25px;
-      font-size: 14px;
-    }
+button {
+  cursor: pointer;
+}
 
-    input {
-      width: 100%;
-      padding: 14px;
-      margin-bottom: 12px;
-      border-radius: 10px;
-      border: 1px solid #30303c;
-      background: #0e0e14;
-      color: white;
-      outline: none;
-      font-size: 15px;
-    }
+.hidden {
+  display: none !important;
+}
 
-    input:focus {
-      border-color: #6c63ff;
-    }
+/* ==================================================
+   AUTH
+================================================== */
 
-    button {
-      width: 100%;
-      padding: 14px;
-      margin-top: 8px;
-      border: 0;
-      border-radius: 10px;
-      background: #6c63ff;
-      color: white;
-      font-size: 15px;
-      font-weight: bold;
-      cursor: pointer;
-    }
+#authScreen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
 
-    button:hover {
-      opacity: .9;
-    }
+.authBox {
+  width: 100%;
+  max-width: 430px;
+  background: #15151d;
+  border: 1px solid #292936;
+  border-radius: 20px;
+  padding: 28px;
+  box-shadow: 0 20px 70px rgba(0,0,0,.45);
+}
 
-    .secondary {
-      background: #292936;
-    }
+.logo {
+  text-align: center;
+  font-size: 28px;
+  font-weight: bold;
+  margin-bottom: 8px;
+}
 
-    #result {
-      margin-top: 18px;
-      padding: 14px;
-      border-radius: 10px;
-      background: #0e0e14;
-      color: #bdbdcc;
-      font-size: 13px;
-      word-break: break-word;
-      display: none;
-    }
+.subtitle {
+  text-align: center;
+  color: #9292a5;
+  margin-bottom: 25px;
+}
 
-    .status {
-      text-align: center;
-      margin-top: 15px;
-      color: #777788;
-      font-size: 12px;
-    }
-  </style>
+.authBox input {
+  width: 100%;
+  padding: 15px;
+  margin-bottom: 12px;
+  border-radius: 11px;
+  border: 1px solid #30303d;
+  background: #0d0d13;
+  color: white;
+  outline: none;
+}
+
+.authBox input:focus {
+  border-color: #6d5dfc;
+}
+
+.primary {
+  width: 100%;
+  padding: 14px;
+  border: 0;
+  border-radius: 11px;
+  background: #6d5dfc;
+  color: white;
+  font-weight: bold;
+  margin-top: 6px;
+}
+
+.secondary {
+  width: 100%;
+  padding: 14px;
+  border: 0;
+  border-radius: 11px;
+  background: #292936;
+  color: white;
+  font-weight: bold;
+  margin-top: 10px;
+}
+
+.message {
+  margin-top: 15px;
+  padding: 12px;
+  border-radius: 10px;
+  background: #0d0d13;
+  color: #c5c5d3;
+  text-align: center;
+  font-size: 14px;
+}
+
+/* ==================================================
+   APP
+================================================== */
+
+#app {
+  height: 100vh;
+  display: flex;
+  overflow: hidden;
+}
+
+/* SIDEBAR */
+
+.sidebar {
+  width: 280px;
+  flex-shrink: 0;
+  background: #111118;
+  border-right: 1px solid #292936;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebarTop {
+  padding: 15px;
+  border-bottom: 1px solid #292936;
+}
+
+.brand {
+  font-weight: bold;
+  font-size: 18px;
+  margin-bottom: 13px;
+}
+
+.newChat {
+  width: 100%;
+  border: 1px solid #393947;
+  background: #1b1b24;
+  color: white;
+  padding: 12px;
+  border-radius: 10px;
+}
+
+.history {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px;
+}
+
+.chatItem {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 5px;
+}
+
+.chatButton {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: #c9c9d5;
+  text-align: left;
+  padding: 11px;
+  border-radius: 9px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chatButton:hover {
+  background: #20202a;
+  color: white;
+}
+
+.deleteChat {
+  border: 0;
+  background: transparent;
+  color: #777788;
+  padding: 7px;
+}
+
+.deleteChat:hover {
+  color: #ff6666;
+}
+
+.sidebarBottom {
+  padding: 13px;
+  border-top: 1px solid #292936;
+}
+
+.userEmail {
+  color: #9999aa;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-bottom: 9px;
+}
+
+.logout {
+  width: 100%;
+  padding: 10px;
+  border: 0;
+  border-radius: 9px;
+  background: #292936;
+  color: white;
+}
+
+/* MAIN */
+
+.main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.topbar {
+  height: 58px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 15px;
+  border-bottom: 1px solid #292936;
+  background: #111118;
+}
+
+.menuBtn {
+  display: none;
+  border: 0;
+  background: transparent;
+  color: white;
+  font-size: 23px;
+}
+
+.chatTitle {
+  font-weight: bold;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 25px;
+}
+
+.welcome {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: #888899;
+}
+
+.messageRow {
+  max-width: 900px;
+  margin: 0 auto 22px;
+  display: flex;
+}
+
+.messageRow.user {
+  justify-content: flex-end;
+}
+
+.bubble {
+  max-width: 85%;
+  padding: 14px 16px;
+  border-radius: 15px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.5;
+}
+
+.user .bubble {
+  background: #5d50dc;
+}
+
+.assistant .bubble {
+  background: #181821;
+  border: 1px solid #2b2b38;
+}
+
+.code {
+  margin-top: 12px;
+  background: #09090d;
+  border: 1px solid #30303c;
+  border-radius: 10px;
+  padding: 14px;
+  overflow-x: auto;
+  white-space: pre;
+  font-family: monospace;
+  font-size: 13px;
+}
+
+.codeButtons {
+  display: flex;
+  gap: 8px;
+  margin-top: 9px;
+}
+
+.smallBtn {
+  border: 0;
+  border-radius: 8px;
+  background: #292936;
+  color: white;
+  padding: 8px 10px;
+  font-size: 12px;
+}
+
+/* INPUT */
+
+.composer {
+  padding: 12px 18px 18px;
+  border-top: 1px solid #292936;
+  background: #111118;
+}
+
+.composerInner {
+  max-width: 900px;
+  margin: auto;
+}
+
+.controls {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.controls select {
+  background: #1b1b24;
+  border: 1px solid #30303d;
+  color: white;
+  border-radius: 8px;
+  padding: 8px;
+}
+
+.promptRow {
+  display: flex;
+  gap: 9px;
+}
+
+#prompt {
+  flex: 1;
+  resize: none;
+  min-height: 52px;
+  max-height: 180px;
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px solid #30303d;
+  background: #0d0d13;
+  color: white;
+  outline: none;
+}
+
+.sendBtn {
+  width: 55px;
+  border: 0;
+  border-radius: 12px;
+  background: #6d5dfc;
+  color: white;
+  font-size: 20px;
+}
+
+/* ==================================================
+   MOBILE
+================================================== */
+
+@media (max-width: 700px) {
+
+  .sidebar {
+    position: fixed;
+    z-index: 20;
+    left: -290px;
+    top: 0;
+    bottom: 0;
+    transition: left .2s;
+  }
+
+  .sidebar.open {
+    left: 0;
+  }
+
+  .menuBtn {
+    display: block;
+  }
+
+  .messages {
+    padding: 16px 12px;
+  }
+
+  .bubble {
+    max-width: 92%;
+  }
+
+  .composer {
+    padding: 9px;
+  }
+
+  .controls {
+    overflow-x: auto;
+  }
+
+  .topbar {
+    height: 54px;
+  }
+}
+
+</style>
 </head>
 
 <body>
 
-  <div class="container">
+<!-- ==================================================
+     AUTH
+================================================== -->
 
-    <h1>Mercury's AI-Generator</h1>
+<div id="authScreen">
+
+  <div class="authBox">
+
+    <div class="logo">
+      Mercury's AI-Generator
+    </div>
 
     <div class="subtitle">
-      Crea tu cuenta o inicia sesión
+      Tu asistente especializado en programación
     </div>
 
     <input
@@ -164,11 +499,14 @@ app.get('/', (req, res) => {
     <input
       id="password"
       type="password"
-      placeholder="Contraseña (mínimo 8 caracteres)"
+      placeholder="Contraseña"
       autocomplete="current-password"
     >
 
-    <button onclick="registerUser()">
+    <button
+      class="primary"
+      onclick="registerUser()"
+    >
       Crear cuenta
     </button>
 
@@ -179,42 +517,264 @@ app.get('/', (req, res) => {
       Iniciar sesión
     </button>
 
-    <div id="result"></div>
-
-    <div class="status">
-      Mercury's AI-Generator • Online
-    </div>
+    <div
+      id="authMessage"
+      class="message hidden"
+    ></div>
 
   </div>
 
+</div>
+
+<!-- ==================================================
+     APP
+================================================== -->
+
+<div id="app" class="hidden">
+
+  <aside
+    id="sidebar"
+    class="sidebar"
+  >
+
+    <div class="sidebarTop">
+
+      <div class="brand">
+        Mercury ⚡
+      </div>
+
+      <button
+        class="newChat"
+        onclick="newChat()"
+      >
+        ＋ Nueva conversación
+      </button>
+
+    </div>
+
+    <div
+      id="history"
+      class="history"
+    ></div>
+
+    <div class="sidebarBottom">
+
+      <div
+        id="userEmail"
+        class="userEmail"
+      ></div>
+
+      <button
+        class="logout"
+        onclick="logout()"
+      >
+        Cerrar sesión
+      </button>
+
+    </div>
+
+  </aside>
+
+  <main class="main">
+
+    <header class="topbar">
+
+      <button
+        class="menuBtn"
+        onclick="toggleSidebar()"
+      >
+        ☰
+      </button>
+
+      <div
+        id="chatTitle"
+        class="chatTitle"
+      >
+        Nueva conversación
+      </div>
+
+    </header>
+
+    <section
+      id="messages"
+      class="messages"
+    >
+
+      <div class="welcome">
+        <div>
+          <h2>¿Qué quieres programar?</h2>
+          <p>
+            Pídeme crear, explicar, corregir
+            o mejorar código.
+          </p>
+        </div>
+      </div>
+
+    </section>
+
+    <div class="composer">
+
+      <div class="composerInner">
+
+        <div class="controls">
+
+          <select id="language">
+            <option value="javascript">
+              JavaScript
+            </option>
+
+            <option value="python">
+              Python
+            </option>
+
+            <option value="bash">
+              Bash
+            </option>
+
+            <option value="c">
+              C
+            </option>
+
+            <option value="cpp">
+              C++
+            </option>
+
+            <option value="java">
+              Java
+            </option>
+
+            <option value="go">
+              Go
+            </option>
+
+            <option value="rust">
+              Rust
+            </option>
+
+            <option value="php">
+              PHP
+            </option>
+
+            <option value="ruby">
+              Ruby
+            </option>
+
+            <option value="powershell">
+              PowerShell
+            </option>
+
+            <option value="sql">
+              SQL
+            </option>
+
+          </select>
+
+        </div>
+
+        <div class="promptRow">
+
+          <textarea
+            id="prompt"
+            placeholder="Escribe lo que quieres crear..."
+          ></textarea>
+
+          <button
+            class="sendBtn"
+            onclick="sendMessage()"
+          >
+            ➤
+          </button>
+
+        </div>
+
+      </div>
+
+    </div>
+
+  </main>
+
+</div>
+
 <script>
 
-function showResult(message) {
-  const result = document.getElementById('result');
+let token =
+  localStorage.getItem('mercury_token');
 
-  result.style.display = 'block';
-  result.textContent = message;
-}
+let currentConversation = null;
 
-function getCredentials() {
+// ==================================================
+// HELPERS
+// ==================================================
+
+function authHeaders() {
+
   return {
-    email:
-      document.getElementById('email').value.trim(),
+    'Content-Type':
+      'application/json',
 
-    password:
-      document.getElementById('password').value
+    'Authorization':
+      'Bearer ' + token
   };
+
 }
+
+function showAuthMessage(text) {
+
+  const box =
+    document.getElementById(
+      'authMessage'
+    );
+
+  box.textContent = text;
+  box.classList.remove('hidden');
+
+}
+
+function hideAuth() {
+
+  document
+    .getElementById('authScreen')
+    .classList.add('hidden');
+
+  document
+    .getElementById('app')
+    .classList.remove('hidden');
+
+}
+
+function showAuth() {
+
+  document
+    .getElementById('authScreen')
+    .classList.remove('hidden');
+
+  document
+    .getElementById('app')
+    .classList.add('hidden');
+
+}
+
+// ==================================================
+// REGISTER
+// ==================================================
 
 async function registerUser() {
 
-  const credentials = getCredentials();
+  const email =
+    document
+      .getElementById('email')
+      .value
+      .trim();
 
-  if (!credentials.email ||
-      !credentials.password) {
+  const password =
+    document
+      .getElementById('password')
+      .value;
 
-    showResult(
-      'Introduce tu correo y contraseña.'
+  if (!email || !password) {
+
+    showAuthMessage(
+      'Introduce correo y contraseña.'
     );
 
     return;
@@ -222,9 +782,9 @@ async function registerUser() {
 
   try {
 
-    const response = await fetch(
-      '/register',
-      {
+    const response =
+      await fetch('/register', {
+
         method: 'POST',
 
         headers: {
@@ -232,51 +792,66 @@ async function registerUser() {
             'application/json'
         },
 
-        body: JSON.stringify(
-          credentials
-        )
-      }
-    );
+        body: JSON.stringify({
+          email,
+          password
+        })
+
+      });
 
     const data =
       await response.json();
 
     if (!response.ok) {
-      showResult(
-        '❌ ' + (data.error || 'Error')
+
+      showAuthMessage(
+        '❌ ' +
+        (data.error || 'Error')
       );
 
       return;
     }
 
+    token = data.token;
+
     localStorage.setItem(
       'mercury_token',
-      data.token
+      token
     );
 
-    showResult(
-      '✅ Cuenta creada correctamente. Ya has iniciado sesión.'
-    );
+    await startApp();
 
   } catch (error) {
 
-    showResult(
-      '❌ Error de conexión con Mercury.'
+    showAuthMessage(
+      '❌ Error de conexión.'
     );
 
-    console.error(error);
   }
+
 }
+
+// ==================================================
+// LOGIN
+// ==================================================
 
 async function loginUser() {
 
-  const credentials = getCredentials();
+  const email =
+    document
+      .getElementById('email')
+      .value
+      .trim();
 
-  if (!credentials.email ||
-      !credentials.password) {
+  const password =
+    document
+      .getElementById('password')
+      .value;
 
-    showResult(
-      'Introduce tu correo y contraseña.'
+  if (!email || !password) {
+
+    showAuthMessage(
+      'Introduce correo y contraseña.'
     );
 
     return;
@@ -284,9 +859,9 @@ async function loginUser() {
 
   try {
 
-    const response = await fetch(
-      '/login',
-      {
+    const response =
+      await fetch('/login', {
+
         method: 'POST',
 
         headers: {
@@ -294,395 +869,469 @@ async function loginUser() {
             'application/json'
         },
 
-        body: JSON.stringify(
-          credentials
-        )
-      }
-    );
+        body: JSON.stringify({
+          email,
+          password
+        })
+
+      });
 
     const data =
       await response.json();
 
     if (!response.ok) {
-      showResult(
-        '❌ ' + (data.error || 'Error')
+
+      showAuthMessage(
+        '❌ ' +
+        (data.error || 'Error')
       );
 
       return;
     }
 
+    token = data.token;
+
     localStorage.setItem(
       'mercury_token',
-      data.token
+      token
     );
 
-    showResult(
-      '✅ Sesión iniciada correctamente.'
-    );
+    await startApp();
 
   } catch (error) {
 
-    showResult(
-      '❌ Error de conexión con Mercury.'
+    showAuthMessage(
+      '❌ Error de conexión.'
     );
 
-    console.error(error);
   }
+
 }
 
-</script>
+// ==================================================
+// START APP
+// ==================================================
 
-</body>
-</html>
-  `);
-});
+async function startApp() {
 
-// ==========================================
-// HEALTH
-// ==========================================
+  hideAuth();
 
-app.get('/health', (req, res) => {
-  res.json({
-    success: true,
-    status: 'online',
-    uptime: process.uptime(),
-    timestamp: new Date().toISOString()
-  });
-});
+  await loadMe();
 
-// ==========================================
-// AUTH
-// ==========================================
+  await loadConversations();
 
-app.post('/register', async (req, res) => {
+  if (!currentConversation) {
+    newChat();
+  }
+
+}
+
+// ==================================================
+// USER
+// ==================================================
+
+async function loadMe() {
 
   try {
 
-    const {
-      email,
-      password
-    } = req.body;
-
-    const result =
-      await register(
-        email,
-        password
-      );
-
-    res.status(201).json({
-      success: true,
-      message:
-        'Cuenta creada correctamente.',
-      user: result.user,
-      token: result.token
-    });
-
-  } catch (error) {
-
-    console.error(
-      'REGISTER ERROR:',
-      error
-    );
-
-    res.status(400).json({
-      success: false,
-      error: error.message
-    });
-  }
-});
-
-app.post('/login', async (req, res) => {
-
-  try {
-
-    const {
-      email,
-      password
-    } = req.body;
-
-    const result =
-      await login(
-        email,
-        password
-      );
-
-    res.json({
-      success: true,
-      message:
-        'Inicio de sesión correcto.',
-      user: result.user,
-      token: result.token
-    });
-
-  } catch (error) {
-
-    console.error(
-      'LOGIN ERROR:',
-      error
-    );
-
-    res.status(401).json({
-      success: false,
-      error: error.message
-    });
-  }
-});
-
-app.get(
-  '/me',
-  authenticate,
-  (req, res) => {
-
-    res.json({
-      success: true,
-      user: req.user
-    });
-
-  }
-);
-
-// ==========================================
-// LANGUAGES
-// ==========================================
-
-app.get('/languages', (req, res) => {
-
-  try {
-
-    const languages =
-      engine.getSupportedLanguages();
-
-    res.json({
-      success: true,
-      count: languages.length,
-      languages
-    });
-
-  } catch (error) {
-
-    console.error(
-      'LANGUAGES ERROR:',
-      error
-    );
-
-    res.status(500).json({
-      success: false,
-      error:
-        'Could not load languages.'
-    });
-  }
-});
-
-// ==========================================
-// GENERATE
-// ==========================================
-
-app.post('/generate', async (req, res) => {
-
-  try {
-
-    const {
-      prompt,
-      language,
-      complexity,
-      obfuscate,
-      encrypt
-    } = req.body;
-
-    if (
-      !prompt ||
-      typeof prompt !== 'string'
-    ) {
-
-      return res.status(400).json({
-        success: false,
-        error:
-          "The 'prompt' field is required."
+    const response =
+      await fetch('/me', {
+        headers: authHeaders()
       });
+
+    if (!response.ok) {
+
+      logout();
+      return;
 
     }
 
-    if (prompt.length > 10000) {
+    const data =
+      await response.json();
 
-      return res.status(400).json({
-        success: false,
-        error:
-          'Prompt is too long.'
-      });
+    document
+      .getElementById('userEmail')
+      .textContent =
+        data.user.email;
 
-    }
+  } catch {
 
-    const result =
-      await engine.generate(
-        prompt,
+    logout();
+
+  }
+
+}
+
+// ==================================================
+// CONVERSATIONS
+// ==================================================
+
+async function loadConversations() {
+
+  try {
+
+    const response =
+      await fetch(
+        '/conversations',
         {
-          language,
-          complexity,
-          obfuscate:
-            obfuscate === true,
-          encrypt:
-            encrypt === true
+          headers:
+            authHeaders()
         }
       );
 
-    res.json(result);
+    if (!response.ok) {
+
+      return;
+    }
+
+    const data =
+      await response.json();
+
+    renderHistory(
+      data.conversations
+    );
+
+    if (
+      data.conversations.length > 0
+    ) {
+
+      await openConversation(
+        data.conversations[0].id
+      );
+
+    }
 
   } catch (error) {
 
-    console.error(
-      'GENERATE ERROR:',
-      error
+    console.error(error);
+
+  }
+
+}
+
+function renderHistory(
+  conversations
+) {
+
+  const history =
+    document.getElementById(
+      'history'
     );
 
-    res.status(400).json({
-      success: false,
-      error: error.message
-    });
-  }
-});
+  history.innerHTML = '';
 
-// ==========================================
-// GENERATE MULTI
-// ==========================================
+  conversations.forEach(
+    conversation => {
 
-app.post(
-  '/generate-multi',
-  async (req, res) => {
+      const row =
+        document.createElement('div');
 
-    try {
+      row.className =
+        'chatItem';
 
-      const {
-        prompt,
-        languages,
-        complexity,
-        obfuscate,
-        encrypt
-      } = req.body;
+      const button =
+        document.createElement('button');
 
-      if (
-        !prompt ||
-        typeof prompt !== 'string'
-      ) {
+      button.className =
+        'chatButton';
 
-        return res.status(400).json({
-          success: false,
-          error:
-            "The 'prompt' field is required."
-        });
+      button.textContent =
+        conversation.title ||
+        'Nueva conversación';
 
-      }
-
-      if (!Array.isArray(languages)) {
-
-        return res.status(400).json({
-          success: false,
-          error:
-            "'languages' must be an array."
-        });
-
-      }
-
-      if (
-        languages.length === 0 ||
-        languages.length > 10
-      ) {
-
-        return res.status(400).json({
-          success: false,
-          error:
-            'Languages must contain between 1 and 10 items.'
-        });
-
-      }
-
-      const results =
-        await engine.generateMulti(
-          prompt,
-          languages,
-          {
-            complexity,
-            obfuscate:
-              obfuscate === true,
-            encrypt:
-              encrypt === true
-          }
+      button.onclick = () =>
+        openConversation(
+          conversation.id
         );
 
-      res.json({
-        success: true,
-        prompt,
-        results
-      });
+      const del =
+        document.createElement('button');
 
-    } catch (error) {
+      del.className =
+        'deleteChat';
 
-      console.error(
-        'GENERATE MULTI ERROR:',
-        error
+      del.textContent = '🗑️';
+
+      del.onclick = () =>
+        deleteConversation(
+          conversation.id
+        );
+
+      row.appendChild(button);
+      row.appendChild(del);
+
+      history.appendChild(row);
+
+    }
+  );
+
+}
+
+// ==================================================
+// NEW CHAT
+// ==================================================
+
+function newChat() {
+
+  currentConversation = null;
+
+  document
+    .getElementById('chatTitle')
+    .textContent =
+      'Nueva conversación';
+
+  const messages =
+    document.getElementById(
+      'messages'
+    );
+
+  messages.innerHTML = `
+    <div class="welcome">
+      <div>
+        <h2>¿Qué quieres programar?</h2>
+        <p>
+          Pídeme crear, explicar, corregir
+          o mejorar código.
+        </p>
+      </div>
+    </div>
+  `;
+
+  closeSidebar();
+
+}
+
+// ==================================================
+// OPEN CHAT
+// ==================================================
+
+async function openConversation(id) {
+
+  try {
+
+    const response =
+      await fetch(
+        '/conversations/' +
+        id,
+        {
+          headers:
+            authHeaders()
+        }
       );
 
-      res.status(400).json({
-        success: false,
-        error: error.message
-      });
+    if (!response.ok) {
+      return;
     }
-  }
-);
 
-// ==========================================
-// 404
-// ==========================================
+    const data =
+      await response.json();
 
-app.use((req, res) => {
+    currentConversation =
+      data.conversation;
 
-  res.status(404).json({
-    success: false,
-    error:
-      'Endpoint not found.'
-  });
+    document
+      .getElementById('chatTitle')
+      .textContent =
+        currentConversation.title;
 
-});
-
-// ==========================================
-// ERROR HANDLER
-// ==========================================
-
-app.use(
-  (error, req, res, next) => {
-
-    console.error(
-      'SERVER ERROR:',
-      error
+    renderMessages(
+      data.messages
     );
 
-    res.status(500).json({
-      success: false,
-      error:
-        'Internal server error.'
-    });
+    closeSidebar();
+
+  } catch (error) {
+
+    console.error(error);
 
   }
-);
 
-// ==========================================
-// START
-// ==========================================
+}
 
-app.listen(
-  PORT,
-  '0.0.0.0',
-  () => {
+// ==================================================
+// RENDER MESSAGES
+// ==================================================
 
-    console.log(
-      `🚀 Mercury's AI-Generator running on port ${PORT}`
+function renderMessages(messages) {
+
+  const container =
+    document.getElementById(
+      'messages'
     );
 
-    console.log(
-      `🌐 Environment: ${
-        process.env.NODE_ENV ||
-        'production'
-      }`
-    );
+  container.innerHTML = '';
+
+  if (!messages.length) {
+
+    newChat();
+    return;
 
   }
-);
+
+  messages.forEach(
+    message => {
+
+      addMessageToScreen(
+        message.role,
+        message.content,
+        message.language
+      );
+
+    }
+  );
+
+  scrollMessages();
+
+}
+
+function addMessageToScreen(
+  role,
+  content,
+  language
+) {
+
+  const container =
+    document.getElementById(
+      'messages'
+    );
+
+  const row =
+    document.createElement('div');
+
+  row.className =
+    'messageRow ' +
+    (role === 'user'
+      ? 'user'
+      : 'assistant');
+
+  const bubble =
+    document.createElement('div');
+
+  bubble.className =
+    'bubble';
+
+  if (
+    role === 'assistant' &&
+    language
+  ) {
+
+    const text =
+      document.createElement('div');
+
+    text.textContent =
+      'Código generado (' +
+      language +
+      ')';
+
+    bubble.appendChild(text);
+
+    const code =
+      document.createElement('pre');
+
+    code.className =
+      'code';
+
+    code.textContent =
+      content;
+
+    bubble.appendChild(code);
+
+    const buttons =
+      document.createElement(
+        'div'
+      );
+
+    buttons.className =
+      'codeButtons';
+
+    const copy =
+      document.createElement('button');
+
+    copy.className =
+      'smallBtn';
+
+    copy.textContent =
+      '📋 Copiar';
+
+    copy.onclick = () =>
+      navigator.clipboard.writeText(
+        content
+      );
+
+    const download =
+      document.createElement('button');
+
+    download.className =
+      'smallBtn';
+
+    download.textContent =
+      '📥 Descargar';
+
+    download.onclick = () =>
+      downloadCode(
+        content,
+        language
+      );
+
+    buttons.appendChild(copy);
+    buttons.appendChild(download);
+
+    bubble.appendChild(buttons);
+
+  } else {
+
+    bubble.textContent =
+      content;
+
+  }
+
+  row.appendChild(bubble);
+
+  container.appendChild(row);
+
+}
+
+// ==================================================
+// SEND MESSAGE
+// ==================================================
+
+async function sendMessage() {
+
+  const input =
+    document.getElementById(
+      'prompt'
+    );
+
+  const prompt =
+    input.value.trim();
+
+  if (!prompt) {
+    return;
+  }
+
+  input.value = '';
+
+  addMessageToScreen(
+    'user',
+    prompt
+  );
+
+  scrollMessages();
+
+  try {
+
+    const language =
+      document
+        .getElementById(
+          'language'
+        )
+        .value;
+
+    const response =
+      await fetch(
+        '/chat',
+        {
+          method: 'POST',
+
+          headers:
+          
