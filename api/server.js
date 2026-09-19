@@ -1,1062 +1,87 @@
 const express = require('express');
+const crypto = require('crypto');
+const path = require('path');
+
 const engine = require('../core/engine');
 const { query } = require('./db');
-const {
-  register,
-  login,
-  authenticate
-} = require('./auth');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json({ limit: '1mb' }));
 
-// ======================================================
-// DATABASE
-// ======================================================
+// =====================================================
+// STATIC WEBSITE
+// =====================================================
 
-async function initChatTables() {
-  await query(`
-    CREATE TABLE IF NOT EXISTS conversations (
-      id SERIAL PRIMARY KEY,
-      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      title VARCHAR(255) NOT NULL DEFAULT 'Nueva conversación',
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    );
-  `);
+app.use(express.static(
+  path.join(__dirname, '../public')
+));
 
-  await query(`
-    CREATE TABLE IF NOT EXISTS messages (
-      id SERIAL PRIMARY KEY,
-      conversation_id INTEGER NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
-      role VARCHAR(20) NOT NULL,
-      content TEXT NOT NULL,
-      language VARCHAR(50),
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    );
-  `);
+// =====================================================
+// AUTH
+// =====================================================
 
-  console.log('🗄️ Tablas de conversaciones listas.');
-}
+const AUTH_SECRET =
+  process.env.AUTH_SECRET ||
+  'mercury-development-secret-change-this';
 
-const databaseReady = initChatTables()
-  .then(() => {
-    console.log('✅ PostgreSQL preparado.');
-  })
-  .catch((error) => {
-    console.error(
-      '❌ Error preparando PostgreSQL:',
-      error.message
-    );
-  });
+const TOKEN_LIFETIME =
+  7 * 24 * 60 * 60 * 1000;
 
-app.use(async (req, res, next) => {
-  await databaseReady;
-  next();
-});
 
-// ======================================================
-// FRONTEND
-// ======================================================
+// Password hashing
+function hashPassword(password) {
 
-app.get('/', (req, res) => {
+  const salt =
+    crypto.randomBytes(16).toString('hex');
 
-  res.send(`
-<!DOCTYPE html>
-<html lang="es">
+  const hash =
+    crypto.scryptSync(
+      password,
+      salt,
+      64
+    ).toString('hex');
 
-<head>
-
-<meta charset="UTF-8">
-
-<meta
-  name="viewport"
-  content="width=device-width, initial-scale=1.0"
->
-
-<title>Mercury's AI-Generator</title>
-
-<style>
-
-* {
-  box-sizing: border-box;
-}
-
-html,
-body {
-  margin: 0;
-  padding: 0;
-  width: 100%;
-  height: 100%;
-}
-
-body {
-  background: #09090d;
-  color: #ffffff;
-  font-family: Arial, Helvetica, sans-serif;
-}
-
-button,
-input,
-textarea,
-select {
-  font: inherit;
-}
-
-button {
-  cursor: pointer;
-}
-
-.hidden {
-  display: none !important;
-}
-
-/* ==========================================
-   LOGIN
-========================================== */
-
-#authScreen {
-  min-height: 100vh;
-  width: 100%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 20px;
-}
-
-.authBox {
-  width: 100%;
-  max-width: 430px;
-  background: #15151d;
-  border: 1px solid #2b2b37;
-  border-radius: 22px;
-  padding: 30px;
-  box-shadow: 0 20px 70px rgba(0, 0, 0, 0.45);
-}
-
-.logo {
-  text-align: center;
-  font-size: 30px;
-  font-weight: 800;
-  margin-bottom: 8px;
-}
-
-.subtitle {
-  text-align: center;
-  color: #9999aa;
-  margin-bottom: 25px;
-}
-
-.authBox input {
-  display: block;
-  width: 100%;
-  padding: 15px;
-  margin-bottom: 12px;
-  border-radius: 12px;
-  border: 1px solid #33333f;
-  background: #0d0d13;
-  color: #ffffff;
-  outline: none;
-}
-
-.authBox input:focus {
-  border-color: #6d5dfc;
-}
-
-.primaryButton {
-  width: 100%;
-  border: 0;
-  border-radius: 12px;
-  padding: 14px;
-  background: #6d5dfc;
-  color: #ffffff;
-  font-weight: 700;
-}
-
-.secondaryButton {
-  width: 100%;
-  border: 0;
-  border-radius: 12px;
-  padding: 14px;
-  margin-top: 10px;
-  background: #292936;
-  color: #ffffff;
-  font-weight: 700;
-}
-
-.authMessage {
-  margin-top: 15px;
-  padding: 12px;
-  border-radius: 10px;
-  background: #0d0d13;
-  color: #ccccd5;
-  text-align: center;
-}
-
-/* ==========================================
-   APP
-========================================== */
-
-#app {
-  width: 100%;
-  height: 100vh;
-  display: flex;
-  overflow: hidden;
-}
-
-/* ==========================================
-   SIDEBAR
-========================================== */
-
-.sidebar {
-  width: 280px;
-  min-width: 280px;
-  height: 100%;
-  background: #111118;
-  border-right: 1px solid #292936;
-  display: flex;
-  flex-direction: column;
-}
-
-.sidebarTop {
-  padding: 15px;
-  border-bottom: 1px solid #292936;
-}
-
-.brand {
-  font-size: 19px;
-  font-weight: 800;
-  margin-bottom: 14px;
-}
-
-.newChatButton {
-  width: 100%;
-  border: 1px solid #393947;
-  border-radius: 10px;
-  padding: 12px;
-  background: #1c1c25;
-  color: #ffffff;
-}
-
-.history {
-  flex: 1;
-  overflow-y: auto;
-  padding: 10px;
-}
-
-.chatItem {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  margin-bottom: 5px;
-}
-
-.chatButton {
-  flex: 1;
-  min-width: 0;
-  border: 0;
-  border-radius: 9px;
-  padding: 11px;
-  background: transparent;
-  color: #c7c7d2;
-  text-align: left;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.chatButton:hover {
-  background: #20202a;
-  color: #ffffff;
-}
-
-.deleteChat {
-  border: 0;
-  background: transparent;
-  color: #777788;
-  padding: 7px;
-}
-
-.deleteChat:hover {
-  color: #ff6666;
-}
-
-.sidebarBottom {
-  padding: 13px;
-  border-top: 1px solid #292936;
-}
-
-.userEmail {
-  color: #9999aa;
-  font-size: 12px;
-  margin-bottom: 10px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.logoutButton {
-  width: 100%;
-  border: 0;
-  border-radius: 9px;
-  padding: 10px;
-  background: #292936;
-  color: #ffffff;
-}
-
-/* ==========================================
-   MAIN
-========================================== */
-
-.main {
-  flex: 1;
-  min-width: 0;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-}
-
-.topbar {
-  height: 58px;
-  min-height: 58px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 15px;
-  background: #111118;
-  border-bottom: 1px solid #292936;
-}
-
-.menuButton {
-  display: none;
-  border: 0;
-  background: transparent;
-  color: #ffffff;
-  font-size: 23px;
-}
-
-.chatTitle {
-  font-weight: 700;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* ==========================================
-   MESSAGES
-========================================== */
-
-.messages {
-  flex: 1;
-  overflow-y: auto;
-  padding: 25px 15px;
-}
-
-.welcome {
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  color: #888899;
-}
-
-.welcome h2 {
-  color: #ffffff;
-}
-
-.messageRow {
-  width: 100%;
-  max-width: 900px;
-  margin: 0 auto 20px;
-  display: flex;
-}
-
-.messageRow.user {
-  justify-content: flex-end;
-}
-
-.bubble {
-  max-width: 85%;
-  padding: 14px 16px;
-  border-radius: 15px;
-  line-height: 1.5;
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
-.messageRow.user .bubble {
-  background: #5d50dc;
-}
-
-.messageRow.assistant .bubble {
-  background: #181821;
-  border: 1px solid #2d2d39;
-}
-
-.code {
-  margin-top: 12px;
-  padding: 14px;
-  background: #09090d;
-  border: 1px solid #30303c;
-  border-radius: 10px;
-  overflow-x: auto;
-  white-space: pre;
-  font-family: monospace;
-  font-size: 13px;
-}
-
-.codeButtons {
-  display: flex;
-  gap: 8px;
-  margin-top: 9px;
-}
-
-.smallButton {
-  border: 0;
-  border-radius: 8px;
-  padding: 8px 10px;
-  background: #292936;
-  color: #ffffff;
-  font-size: 12px;
-}
-
-/* ==========================================
-   COMPOSER
-========================================== */
-
-.composer {
-  padding: 10px 15px 18px;
-  background: #111118;
-  border-top: 1px solid #292936;
-}
-
-.composerInner {
-  width: 100%;
-  max-width: 900px;
-  margin: auto;
-}
-
-.controls {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-
-.controls select {
-  padding: 8px;
-  border-radius: 8px;
-  border: 1px solid #30303d;
-  background: #1b1b24;
-  color: #ffffff;
-}
-
-.promptRow {
-  display: flex;
-  gap: 9px;
-}
-
-#prompt {
-  flex: 1;
-  min-height: 52px;
-  max-height: 180px;
-  resize: none;
-  padding: 14px;
-  border-radius: 12px;
-  border: 1px solid #30303d;
-  background: #0d0d13;
-  color: #ffffff;
-  outline: none;
-}
-
-#prompt:focus {
-  border-color: #6d5dfc;
-}
-
-.sendButton {
-  width: 55px;
-  min-width: 55px;
-  border: 0;
-  border-radius: 12px;
-  background: #6d5dfc;
-  color: #ffffff;
-  font-size: 20px;
-}
-
-/* ==========================================
-   MOBILE
-========================================== */
-
-@media (max-width: 700px) {
-
-  .sidebar {
-    position: fixed;
-    z-index: 100;
-    left: -290px;
-    top: 0;
-    bottom: 0;
-    transition: left 0.2s ease;
-  }
-
-  .sidebar.open {
-    left: 0;
-  }
-
-  .menuButton {
-    display: block;
-  }
-
-  .messages {
-    padding: 15px 10px;
-  }
-
-  .bubble {
-    max-width: 92%;
-  }
-
-  .composer {
-    padding: 8px;
-  }
-
-  .controls {
-    overflow-x: auto;
-  }
-
-  .topbar {
-    height: 54px;
-    min-height: 54px;
-  }
-
-  .authBox {
-    padding: 24px;
-  }
-
-}
-
-</style>
-
-</head>
-
-<body>
-
-<!-- ==========================================
-     AUTH
-========================================== -->
-
-<div id="authScreen">
-
-  <div class="authBox">
-
-    <div class="logo">
-      Mercury's AI-Generator
-    </div>
-
-    <div class="subtitle">
-      Tu asistente especializado en programación
-    </div>
-
-    <input
-      id="email"
-      type="email"
-      placeholder="Correo electrónico"
-      autocomplete="email"
-    >
-
-    <input
-      id="password"
-      type="password"
-      placeholder="Contraseña"
-      autocomplete="current-password"
-    >
-
-    <button
-      class="primaryButton"
-      onclick="registerUser()"
-    >
-      Crear cuenta
-    </button>
-
-    <button
-      class="secondaryButton"
-      onclick="loginUser()"
-    >
-      Iniciar sesión
-    </button>
-
-    <div
-      id="authMessage"
-      class="authMessage hidden"
-    ></div>
-
-  </div>
-
-</div>
-
-<!-- ==========================================
-     APP
-========================================== -->
-
-<div id="app" class="hidden">
-
-  <aside
-    id="sidebar"
-    class="sidebar"
-  >
-
-    <div class="sidebarTop">
-
-      <div class="brand">
-        Mercury ⚡
-      </div>
-
-      <button
-        class="newChatButton"
-        onclick="newChat()"
-      >
-        ＋ Nueva conversación
-      </button>
-
-    </div>
-
-    <div
-      id="history"
-      class="history"
-    ></div>
-
-    <div class="sidebarBottom">
-
-      <div
-        id="userEmail"
-        class="userEmail"
-      ></div>
-
-      <button
-        class="logoutButton"
-        onclick="logout()"
-      >
-        Cerrar sesión
-      </button>
-
-    </div>
-
-  </aside>
-
-  <main class="main">
-
-    <header class="topbar">
-
-      <button
-        class="menuButton"
-        onclick="toggleSidebar()"
-      >
-        ☰
-      </button>
-
-      <div
-        id="chatTitle"
-        class="chatTitle"
-      >
-        Nueva conversación
-      </div>
-
-    </header>
-
-    <section
-      id="messages"
-      class="messages"
-    >
-
-      <div class="welcome">
-
-        <div>
-
-          <h2>
-            ¿Qué quieres programar?
-          </h2>
-
-          <p>
-            Pídeme crear, explicar,
-            corregir o mejorar código.
-          </p>
-
-        </div>
-
-      </div>
-
-    </section>
-
-    <div class="composer">
-
-      <div class="composerInner">
-
-        <div class="controls">
-
-          <select id="language">
-
-            <option value="javascript">
-              JavaScript
-            </option>
-
-            <option value="python">
-              Python
-            </option>
-
-            <option value="bash">
-              Bash
-            </option>
-
-            <option value="c">
-              C
-            </option>
-
-            <option value="cpp">
-              C++
-            </option>
-
-            <option value="java">
-              Java
-            </option>
-
-            <option value="go">
-              Go
-            </option>
-
-            <option value="rust">
-              Rust
-            </option>
-
-            <option value="php">
-              PHP
-            </option>
-
-            <option value="ruby">
-              Ruby
-            </option>
-
-            <option value="powershell">
-              PowerShell
-            </option>
-
-            <option value="sql">
-              SQL
-            </option>
-
-          </select>
-
-        </div>
-
-        <div class="promptRow">
-
-          <textarea
-            id="prompt"
-            placeholder="Escribe lo que quieres crear..."
-          ></textarea>
-
-          <button
-            class="sendButton"
-            onclick="sendMessage()"
-          >
-            ➤
-          </button>
-
-        </div>
-
-      </div>
-
-    </div>
-
-  </main>
-
-</div>
-
-<script>
-
-let token =
-  localStorage.getItem('mercury_token');
-
-let currentConversation = null;
-
-
-// ==================================================
-// AUTH HEADERS
-// ==================================================
-
-function authHeaders() {
-
-  return {
-    'Content-Type': 'application/json',
-    'Authorization': 'Bearer ' + token
-  };
-
+  return salt + ':' + hash;
 }
 
 
-// ==================================================
-// AUTH MESSAGE
-// ==================================================
-
-function showAuthMessage(text) {
-
-  const box =
-    document.getElementById('authMessage');
-
-  box.textContent = text;
-
-  box.classList.remove('hidden');
-
-}
-
-
-// ==================================================
-// SHOW APP
-// ==================================================
-
-function showApp() {
-
-  document
-    .getElementById('authScreen')
-    .classList.add('hidden');
-
-  document
-    .getElementById('app')
-    .classList.remove('hidden');
-
-}
-
-
-// ==================================================
-// SHOW LOGIN
-// ==================================================
-
-function showLogin() {
-
-  document
-    .getElementById('authScreen')
-    .classList.remove('hidden');
-
-  document
-    .getElementById('app')
-    .classList.add('hidden');
-
-}
-
-
-// ==================================================
-// REGISTER
-// ==================================================
-
-async function registerUser() {
-
-  const email =
-    document
-      .getElementById('email')
-      .value
-      .trim();
-
-  const password =
-    document
-      .getElementById('password')
-      .value;
-
-  if (!email || !password) {
-
-    showAuthMessage(
-      'Introduce correo y contraseña.'
-    );
-
-    return;
-  }
+// Password verification
+function verifyPassword(
+  password,
+  stored
+) {
 
   try {
 
-    const response =
-      await fetch('/register', {
+    const parts =
+      stored.split(':');
 
-        method: 'POST',
-
-        headers: {
-          'Content-Type': 'application/json'
-        },
-
-        body: JSON.stringify({
-          email: email,
-          password: password
-        })
-
-      });
-
-    const data =
-      await response.json();
-
-    if (!response.ok) {
-
-      showAuthMessage(
-        '❌ ' +
-        (data.error || 'Error')
-      );
-
-      return;
-    }
-
-    token = data.token;
-
-    localStorage.setItem(
-      'mercury_token',
-      token
-    );
-
-    await startApp();
-
-  } catch (error) {
-
-    console.error(error);
-
-    showAuthMessage(
-      '❌ Error de conexión.'
-    );
-
-  }
-
-}
-
-
-// ==================================================
-// LOGIN
-// ==================================================
-
-async function loginUser() {
-
-  const email =
-    document
-      .getElementById('email')
-      .value
-      .trim();
-
-  const password =
-    document
-      .getElementById('password')
-      .value;
-
-  if (!email || !password) {
-
-    showAuthMessage(
-      'Introduce correo y contraseña.'
-    );
-
-    return;
-  }
-
-  try {
-
-    const response =
-      await fetch('/login', {
-
-        method: 'POST',
-
-        headers: {
-          'Content-Type': 'application/json'
-        },
-
-        body: JSON.stringify({
-          email: email,
-          password: password
-        })
-
-      });
-
-    const data =
-      await response.json();
-
-    if (!response.ok) {
-
-      showAuthMessage(
-        '❌ ' +
-        (data.error || 'Error')
-      );
-
-      return;
-    }
-
-    token = data.token;
-
-    localStorage.setItem(
-      'mercury_token',
-      token
-    );
-
-    await startApp();
-
-  } catch (error) {
-
-    console.error(error);
-
-    showAuthMessage(
-      '❌ Error de conexión.'
-    );
-
-  }
-
-}
-
-
-// ==================================================
-// START APP
-// ==================================================
-
-async function startApp() {
-
-  showApp();
-
-  const valid =
-    await loadMe();
-
-  if (!valid) {
-    return;
-  }
-
-  await loadConversations();
-
-}
-
-
-// ==================================================
-// LOAD USER
-// ==================================================
-
-async function loadMe() {
-
-  try {
-
-    const response =
-      await fetch('/me', {
-        headers: authHeaders()
-      });
-
-    if (!response.ok) {
-
-      logout();
-
+    if (parts.length !== 2) {
       return false;
-
     }
 
-    const data =
-      await response.json();
+    const salt = parts[0];
+    const originalHash =
+      Buffer.from(parts[1], 'hex');
 
-    document
-      .getElementById('userEmail')
-      .textContent =
-        data.user.email;
+    const hash =
+      crypto.scryptSync(
+        password,
+        salt,
+        64
+      );
 
-    return true;
+    return (
+      originalHash.length === hash.length &&
+      crypto.timingSafeEqual(
+        originalHash,
+        hash
+      )
+    );
 
   } catch (error) {
-
-    console.error(error);
-
-    logout();
 
     return false;
 
@@ -1065,224 +90,1075 @@ async function loadMe() {
 }
 
 
-// ==================================================
-// LOAD CONVERSATIONS
-// ==================================================
+// Base64 URL
+function base64Url(value) {
 
-async function loadConversations() {
+  return Buffer
+    .from(value)
+    .toString('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/g, '');
+
+}
+
+
+// Create token
+function createToken(user) {
+
+  const payload = {
+    id: user.id,
+    email: user.email,
+    exp: Date.now() + TOKEN_LIFETIME
+  };
+
+  const encoded =
+    base64Url(
+      JSON.stringify(payload)
+    );
+
+  const signature =
+    crypto
+      .createHmac(
+        'sha256',
+        AUTH_SECRET
+      )
+      .update(encoded)
+      .digest('base64')
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/g, '');
+
+  return encoded + '.' + signature;
+
+}
+
+
+// Verify token
+function verifyToken(token) {
 
   try {
 
-    const response =
-      await fetch('/conversations', {
-        headers: authHeaders()
+    if (!token) {
+      return null;
+    }
+
+    const parts =
+      token.split('.');
+
+    if (parts.length !== 2) {
+      return null;
+    }
+
+    const encoded = parts[0];
+    const signature = parts[1];
+
+    const expected =
+      crypto
+        .createHmac(
+          'sha256',
+          AUTH_SECRET
+        )
+        .update(encoded)
+        .digest('base64')
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=+$/g, '');
+
+    if (
+      signature.length !== expected.length
+    ) {
+      return null;
+    }
+
+    if (
+      !crypto.timingSafeEqual(
+        Buffer.from(signature),
+        Buffer.from(expected)
+      )
+    ) {
+      return null;
+    }
+
+    const payload =
+      JSON.parse(
+        Buffer
+          .from(
+            encoded,
+            'base64url'
+          )
+          .toString('utf8')
+      );
+
+    if (
+      !payload.exp ||
+      Date.now() > payload.exp
+    ) {
+      return null;
+    }
+
+    return payload;
+
+  } catch (error) {
+
+    return null;
+
+  }
+
+}
+
+
+// Authentication middleware
+function authenticate(req, res, next) {
+
+  const header =
+    req.headers.authorization || '';
+
+  if (!header.startsWith('Bearer ')) {
+
+    return res.status(401).json({
+      success: false,
+      error: 'No autenticado.'
+    });
+
+  }
+
+  const token =
+    header.slice(7);
+
+  const user =
+    verifyToken(token);
+
+  if (!user) {
+
+    return res.status(401).json({
+      success: false,
+      error: 'Sesión inválida o expirada.'
+    });
+
+  }
+
+  req.user = user;
+
+  next();
+
+}
+
+
+// =====================================================
+// DATABASE INITIALIZATION
+// =====================================================
+
+async function initDatabase() {
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS users (
+      id SERIAL PRIMARY KEY,
+      email VARCHAR(255) UNIQUE NOT NULL,
+      password_hash TEXT NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS conversations (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL
+        REFERENCES users(id)
+        ON DELETE CASCADE,
+      title VARCHAR(255)
+        NOT NULL
+        DEFAULT 'Nueva conversación',
+      created_at TIMESTAMP
+        DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP
+        DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS messages (
+      id SERIAL PRIMARY KEY,
+      conversation_id INTEGER NOT NULL
+        REFERENCES conversations(id)
+        ON DELETE CASCADE,
+      role VARCHAR(20) NOT NULL,
+      content TEXT NOT NULL,
+      language VARCHAR(50),
+      created_at TIMESTAMP
+        DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+
+  console.log('🗄️ PostgreSQL: tablas listas.');
+
+}
+
+
+// =====================================================
+// ROOT
+// =====================================================
+
+app.get('/health', (req, res) => {
+
+  res.json({
+    success: true,
+    status: 'online',
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString()
+  });
+
+});
+
+
+app.get('/api/status', (req, res) => {
+
+  res.json({
+    success: true,
+    name: "Mercury's AI-Generator",
+    status: 'online'
+  });
+
+});
+
+
+// =====================================================
+// REGISTER
+// =====================================================
+
+app.post('/api/register', async (req, res) => {
+
+  try {
+
+    const email =
+      String(req.body.email || '')
+        .trim()
+        .toLowerCase();
+
+    const password =
+      String(req.body.password || '');
+
+    if (!email || !password) {
+
+      return res.status(400).json({
+        success: false,
+        error: 'Correo y contraseña son obligatorios.'
       });
 
-    if (!response.ok) {
-      return;
     }
 
-    const data =
-      await response.json();
+    if (
+      !email.includes('@') ||
+      email.length > 255
+    ) {
 
-    renderHistory(
-      data.conversations
-    );
+      return res.status(400).json({
+        success: false,
+        error: 'Correo electrónico inválido.'
+      });
+
+    }
+
+    if (password.length < 6) {
+
+      return res.status(400).json({
+        success: false,
+        error: 'La contraseña debe tener al menos 6 caracteres.'
+      });
+
+    }
+
+    const existing =
+      await query(
+        `
+        SELECT id
+        FROM users
+        WHERE email = $1
+        `,
+        [email]
+      );
+
+    if (existing.rows.length > 0) {
+
+      return res.status(409).json({
+        success: false,
+        error: 'Ese correo ya está registrado.'
+      });
+
+    }
+
+    const passwordHash =
+      hashPassword(password);
+
+    const result =
+      await query(
+        `
+        INSERT INTO users
+          (email, password_hash)
+        VALUES
+          ($1, $2)
+        RETURNING
+          id,
+          email,
+          created_at
+        `,
+        [
+          email,
+          passwordHash
+        ]
+      );
+
+    const user =
+      result.rows[0];
+
+    const token =
+      createToken(user);
+
+    res.status(201).json({
+
+      success: true,
+
+      user,
+
+      token
+
+    });
 
   } catch (error) {
 
-    console.error(error);
+    console.error(
+      'REGISTER ERROR:',
+      error
+    );
+
+    res.status(500).json({
+      success: false,
+      error: 'Error creando la cuenta.'
+    });
 
   }
 
-}
+});
 
 
-// ==================================================
-// RENDER HISTORY
-// ==================================================
+// =====================================================
+// LOGIN
+// =====================================================
 
-function renderHistory(conversations) {
-
-  const history =
-    document.getElementById('history');
-
-  history.innerHTML = '';
-
-  conversations.forEach(function(conversation) {
-
-    const row =
-      document.createElement('div');
-
-    row.className = 'chatItem';
-
-    const button =
-      document.createElement('button');
-
-    button.className = 'chatButton';
-
-    button.textContent =
-      conversation.title ||
-      'Nueva conversación';
-
-    button.onclick = function() {
-
-      openConversation(
-        conversation.id
-      );
-
-    };
-
-    const deleteButton =
-      document.createElement('button');
-
-    deleteButton.className =
-      'deleteChat';
-
-    deleteButton.textContent = '🗑️';
-
-    deleteButton.onclick = function(event) {
-
-      event.stopPropagation();
-
-      deleteConversation(
-        conversation.id
-      );
-
-    };
-
-    row.appendChild(button);
-
-    row.appendChild(deleteButton);
-
-    history.appendChild(row);
-
-  });
-
-}
-
-
-// ==================================================
-// NEW CHAT
-// ==================================================
-
-function newChat() {
-
-  currentConversation = null;
-
-  document
-    .getElementById('chatTitle')
-    .textContent =
-      'Nueva conversación';
-
-  const messages =
-    document.getElementById('messages');
-
-  messages.innerHTML =
-    '<div class="welcome">' +
-      '<div>' +
-        '<h2>¿Qué quieres programar?</h2>' +
-        '<p>' +
-          'Pídeme crear, explicar, corregir ' +
-          'o mejorar código.' +
-        '</p>' +
-      '</div>' +
-    '</div>';
-
-  closeSidebar();
-
-}
-
-
-// ==================================================
-// OPEN CONVERSATION
-// ==================================================
-
-async function openConversation(id) {
+app.post('/api/login', async (req, res) => {
 
   try {
 
-    const response =
-      await fetch(
-        '/conversations/' + id,
-        {
-          headers: authHeaders()
-        }
-      );
+    const email =
+      String(req.body.email || '')
+        .trim()
+        .toLowerCase();
 
-    if (!response.ok) {
-      return;
+    const password =
+      String(req.body.password || '');
+
+    if (!email || !password) {
+
+      return res.status(400).json({
+        success: false,
+        error: 'Correo y contraseña son obligatorios.'
+      });
+
     }
 
-    const data =
-      await response.json();
+    const result =
+      await query(
+        `
+        SELECT
+          id,
+          email,
+          password_hash,
+          created_at
+        FROM users
+        WHERE email = $1
+        `,
+        [email]
+      );
 
-    currentConversation =
-      data.conversation;
+    if (result.rows.length === 0) {
 
-    document
-      .getElementById('chatTitle')
-      .textContent =
-        currentConversation.title;
+      return res.status(401).json({
+        success: false,
+        error: 'Correo o contraseña incorrectos.'
+      });
 
-    renderMessages(
-      data.messages
-    );
+    }
 
-    closeSidebar();
+    const user =
+      result.rows[0];
+
+    const valid =
+      verifyPassword(
+        password,
+        user.password_hash
+      );
+
+    if (!valid) {
+
+      return res.status(401).json({
+        success: false,
+        error: 'Correo o contraseña incorrectos.'
+      });
+
+    }
+
+    const safeUser = {
+      id: user.id,
+      email: user.email,
+      created_at: user.created_at
+    };
+
+    const token =
+      createToken(safeUser);
+
+    res.json({
+
+      success: true,
+
+      user: safeUser,
+
+      token
+
+    });
 
   } catch (error) {
 
-    console.error(error);
-
-  }
-
-}
-
-
-// ==================================================
-// RENDER MESSAGES
-// ==================================================
-
-function renderMessages(messages) {
-
-  const container =
-    document.getElementById('messages');
-
-  container.innerHTML = '';
-
-  if (!messages.length) {
-
-    newChat();
-
-    return;
-
-  }
-
-  messages.forEach(function(message) {
-
-    addMessageToScreen(
-      message.role,
-      message.content,
-      message.language
+    console.error(
+      'LOGIN ERROR:',
+      error
     );
 
+    res.status(500).json({
+      success: false,
+      error: 'Error iniciando sesión.'
+    });
+
+  }
+
+});
+
+
+// =====================================================
+// CURRENT USER
+// =====================================================
+
+app.get(
+  '/api/me',
+  authenticate,
+  (req, res) => {
+
+    res.json({
+      success: true,
+      user: req.user
+    });
+
+  }
+);
+
+
+// =====================================================
+// CONVERSATIONS
+// =====================================================
+
+app.get(
+  '/api/conversations',
+  authenticate,
+  async (req, res) => {
+
+    try {
+
+      const result =
+        await query(
+          `
+          SELECT
+            id,
+            title,
+            created_at,
+            updated_at
+          FROM conversations
+          WHERE user_id = $1
+          ORDER BY updated_at DESC
+          `,
+          [req.user.id]
+        );
+
+      res.json({
+        success: true,
+        conversations: result.rows
+      });
+
+    } catch (error) {
+
+      console.error(
+        'CONVERSATIONS ERROR:',
+        error
+      );
+
+      res.status(500).json({
+        success: false,
+        error: 'No se pudieron cargar las conversaciones.'
+      });
+
+    }
+
+  }
+);
+
+
+// =====================================================
+// OPEN CONVERSATION
+// =====================================================
+
+app.get(
+  '/api/conversations/:id',
+  authenticate,
+  async (req, res) => {
+
+    try {
+
+      const id =
+        Number(req.params.id);
+
+      if (!Number.isInteger(id)) {
+
+        return res.status(400).json({
+          success: false,
+          error: 'ID inválido.'
+        });
+
+      }
+
+      const conversation =
+        await query(
+          `
+          SELECT
+            id,
+            title,
+            created_at,
+            updated_at
+          FROM conversations
+          WHERE id = $1
+          AND user_id = $2
+          `,
+          [
+            id,
+            req.user.id
+          ]
+        );
+
+      if (
+        conversation.rows.length === 0
+      ) {
+
+        return res.status(404).json({
+          success: false,
+          error: 'Conversación no encontrada.'
+        });
+
+      }
+
+      const messages =
+        await query(
+          `
+          SELECT
+            id,
+            role,
+            content,
+            language,
+            created_at
+          FROM messages
+          WHERE conversation_id = $1
+          ORDER BY id ASC
+          `,
+          [id]
+        );
+
+      res.json({
+
+        success: true,
+
+        conversation:
+          conversation.rows[0],
+
+        messages:
+          messages.rows
+
+      });
+
+    } catch (error) {
+
+      console.error(
+        'OPEN CHAT ERROR:',
+        error
+      );
+
+      res.status(500).json({
+        success: false,
+        error: 'No se pudo abrir la conversación.'
+      });
+
+    }
+
+  }
+);
+
+
+// =====================================================
+// DELETE CONVERSATION
+// =====================================================
+
+app.delete(
+  '/api/conversations/:id',
+  authenticate,
+  async (req, res) => {
+
+    try {
+
+      const id =
+        Number(req.params.id);
+
+      if (!Number.isInteger(id)) {
+
+        return res.status(400).json({
+          success: false,
+          error: 'ID inválido.'
+        });
+
+      }
+
+      const result =
+        await query(
+          `
+          DELETE FROM conversations
+          WHERE id = $1
+          AND user_id = $2
+          RETURNING id
+          `,
+          [
+            id,
+            req.user.id
+          ]
+        );
+
+      if (
+        result.rows.length === 0
+      ) {
+
+        return res.status(404).json({
+          success: false,
+          error: 'Conversación no encontrada.'
+        });
+
+      }
+
+      res.json({
+        success: true
+      });
+
+    } catch (error) {
+
+      console.error(
+        'DELETE CHAT ERROR:',
+        error
+      );
+
+      res.status(500).json({
+        success: false,
+        error: 'No se pudo eliminar la conversación.'
+      });
+
+    }
+
+  }
+);
+
+
+// =====================================================
+// CHAT + GENERATION
+// =====================================================
+
+app.post(
+  '/api/chat',
+  authenticate,
+  async (req, res) => {
+
+    try {
+
+      const prompt =
+        String(req.body.prompt || '').trim();
+
+      const language =
+        String(
+          req.body.language ||
+          'javascript'
+        ).toLowerCase();
+
+      let conversationId =
+        req.body.conversationId;
+
+      if (!prompt) {
+
+        return res.status(400).json({
+          success: false,
+          error: 'Escribe algo primero.'
+        });
+
+      }
+
+      if (prompt.length > 10000) {
+
+        return res.status(400).json({
+          success: false,
+          error: 'El mensaje es demasiado largo.'
+        });
+
+      }
+
+
+      // -------------------------------------------
+      // CREATE CONVERSATION
+      // -------------------------------------------
+
+      if (!conversationId) {
+
+        let title =
+          prompt
+            .replace(/\s+/g, ' ')
+            .slice(0, 60);
+
+        if (!title) {
+          title = 'Nueva conversación';
+        }
+
+        const created =
+          await query(
+            `
+            INSERT INTO conversations
+              (user_id, title)
+            VALUES
+              ($1, $2)
+            RETURNING
+              id,
+              title,
+              created_at,
+              updated_at
+            `,
+            [
+              req.user.id,
+              title
+            ]
+          );
+
+        conversationId =
+          created.rows[0].id;
+
+      } else {
+
+        conversationId =
+          Number(conversationId);
+
+        const owned =
+          await query(
+            `
+            SELECT id
+            FROM conversations
+            WHERE id = $1
+            AND user_id = $2
+            `,
+            [
+              conversationId,
+              req.user.id
+            ]
+          );
+
+        if (owned.rows.length === 0) {
+
+          return res.status(404).json({
+            success: false,
+            error: 'Conversación no encontrada.'
+          });
+
+        }
+
+      }
+
+
+      // -------------------------------------------
+      // SAVE USER MESSAGE
+      // -------------------------------------------
+
+      await query(
+        `
+        INSERT INTO messages
+          (
+            conversation_id,
+            role,
+            content,
+            language
+          )
+        VALUES
+          ($1, 'user', $2, $3)
+        `,
+        [
+          conversationId,
+          prompt,
+          language
+        ]
+      );
+
+
+      // -------------------------------------------
+      // GENERATE CODE
+      // -------------------------------------------
+
+      const result =
+        await engine.generate(
+          prompt,
+          {
+            language
+          }
+        );
+
+
+      // -------------------------------------------
+      // SAVE AI MESSAGE
+      // -------------------------------------------
+
+      await query(
+        `
+        INSERT INTO messages
+          (
+            conversation_id,
+            role,
+            content,
+            language
+          )
+        VALUES
+          ($1, 'assistant', $2, $3)
+        `,
+        [
+          conversationId,
+          result.code,
+          result.language
+        ]
+      );
+
+
+      // -------------------------------------------
+      // UPDATE DATE
+      // -------------------------------------------
+
+      const updated =
+        await query(
+          `
+          UPDATE conversations
+          SET updated_at = CURRENT_TIMESTAMP
+          WHERE id = $1
+          AND user_id = $2
+          RETURNING
+            id,
+            title,
+            created_at,
+            updated_at
+          `,
+          [
+            conversationId,
+            req.user.id
+          ]
+        );
+
+
+      res.json({
+
+        success: true,
+
+        conversation:
+          updated.rows[0],
+
+        result
+
+      });
+
+    } catch (error) {
+
+      console.error(
+        'CHAT ERROR:',
+        error
+      );
+
+      res.status(400).json({
+        success: false,
+        error: error.message
+      });
+
+    }
+
+  }
+);
+
+
+// =====================================================
+// LANGUAGES
+// =====================================================
+
+app.get('/api/languages', (req, res) => {
+
+  try {
+
+    const languages =
+      engine.getSupportedLanguages();
+
+    res.json({
+      success: true,
+      count: languages.length,
+      languages
+    });
+
+  } catch (error) {
+
+    console.error(
+      'LANGUAGES ERROR:',
+      error
+    );
+
+    res.status(500).json({
+      success: false,
+      error: 'No se pudieron cargar los lenguajes.'
+    });
+
+  }
+
+});
+
+
+// =====================================================
+// GENERATE DIRECTLY
+// =====================================================
+
+app.post(
+  '/api/generate',
+  authenticate,
+  async (req, res) => {
+
+    try {
+
+      const prompt =
+        String(req.body.prompt || '');
+
+      const language =
+        req.body.language;
+
+      const complexity =
+        req.body.complexity;
+
+      if (!prompt.trim()) {
+
+        return res.status(400).json({
+          success: false,
+          error: 'El prompt es obligatorio.'
+        });
+
+      }
+
+      if (prompt.length > 10000) {
+
+        return res.status(400).json({
+          success: false,
+          error: 'El prompt es demasiado largo.'
+        });
+
+      }
+
+      const result =
+        await engine.generate(
+          prompt,
+          {
+            language,
+            complexity
+          }
+        );
+
+      res.json(result);
+
+    } catch (error) {
+
+      console.error(
+        'GENERATE ERROR:',
+        error
+      );
+
+      res.status(400).json({
+        success: false,
+        error: error.message
+      });
+
+    }
+
+  }
+);
+
+
+// =====================================================
+// 404
+// =====================================================
+
+app.use((req, res) => {
+
+  res.status(404).json({
+    success: false,
+    error: 'Endpoint not found.'
   });
 
-  scrollMessages();
+});
+
+
+// =====================================================
+// START
+// =====================================================
+
+async function start() {
+
+  try {
+
+    await initDatabase();
+
+    app.listen(
+      PORT,
+      '0.0.0.0',
+      () => {
+
+        console.log(
+          "🚀 Mercury's AI-Generator running on port " +
+          PORT
+        );
+
+        console.log(
+          '🌐 Environment: ' +
+          (
+            process.env.NODE_ENV ||
+            'production'
+          )
+        );
+
+      }
+    );
+
+  } catch (error) {
+
+    console.error(
+      '❌ DATABASE START ERROR:',
+      error
+    );
+
+    process.exit(1);
+
+  }
 
 }
 
-
-// ==================================================
-// ADD MESSAGE
-// ==================================================
-
-function addMessageToScreen(
-  role,
-  content,
-  language
-) {
-
-  const container =
-    document.getElementById('messages');
+start();
