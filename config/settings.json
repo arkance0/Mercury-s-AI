@@ -1,0 +1,10 @@
+{
+  "maxRetries": 3,
+  "timeout": 30000,
+  "defaultLanguage": "javascript",
+  "defaultComplexity": "medium",
+  "maxPromptLength": 10000,
+  "allowObfuscation": false,
+  "allowEncryption": false,
+  "environment": "production"
+}
