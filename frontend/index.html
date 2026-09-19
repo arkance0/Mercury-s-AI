@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>Mercury's AI-Generator</title>
+
+    <link
+        rel="stylesheet"
+        href="/style.css"
+    >
+</head>
+
+<body>
+
+<div class="app">
+
+    <!-- SIDEBAR -->
+
+    <aside class="sidebar">
+
+        <div class="brand">
+            <div class="logo">M</div>
+
+            <div>
+                <h1>Mercury</h1>
+                <span>AI-Generator</span>
+            </div>
+        </div>
+
+        <button
+            id="newChatBtn"
+            class="new-chat"
+        >
+            + New chat
+        </button>
+
+        <div class="sidebar-section">
+            <span class="section-title">
+                Tools
+            </span>
+
+            <button
+                class="side-button"
+                id="explainBtn"
+            >
+                Explain Code
+            </button>
+
+            <button
+                class="side-button"
+                id="fixBtn"
+            >
+                Fix Code
+            </button>
+
+            <button
+                class="side-button"
+                id="convertBtn"
+            >
+                Convert Code
+            </button>
+        </div>
+
+        <div class="sidebar-bottom">
+
+            <div class="status">
+                <span class="status-dot"></span>
+                <span id="statusText">
+                    Connecting...
+                </span>
+            </div>
+
+        </div>
+
+    </aside>
+
+
+    <!-- MAIN -->
+
+    <main class="main">
+
+        <!-- HEADER -->
+
+        <header class="topbar">
+
+            <div>
+                <h2>Mercury's AI-Generator</h2>
+
+                <p>
+                    Code generation assistant
+                </p>
+            </div>
+
+            <div class="header-right">
+
+                <select id="languageSelect">
+
+                    <option value="javascript">
+                        JavaScript
+                    </option>
+
+                    <option value="python">
+                        Python
+                    </option>
+
+                    <option value="bash">
+                        Bash
+                    </option>
+
+                    <option value="c">
+                        C
+                    </option>
+
+                    <option value="cpp">
+                        C++
+                    </option>
+
+                    <option value="java">
+                        Java
+                    </option>
+
+                    <option value="go">
+                        Go
+                    </option>
+
+                    <option value="rust">
+                        Rust
+                    </option>
+
+                    <option value="php">
+                        PHP
+                    </option>
+
+                    <option value="ruby">
+                        Ruby
+                    </option>
+
+                    <option value="powershell">
+                        PowerShell
+                    </option>
+
+                    <option value="sql">
+                        SQL
+                    </option>
+
+                </select>
+
+            </div>
+
+        </header>
+
+
+        <!-- CHAT -->
+
+        <section
+            id="chat"
+            class="chat"
+        >
+
+            <div
+                id="welcome"
+                class="welcome"
+            >
+
+                <div class="welcome-logo">
+                    M
+                </div>
+
+                <h3>
+                    What are we building today?
+                </h3>
+
+                <p>
+                    Ask Mercury to generate, explain,
+                    fix or improve code.
+                </p>
+
+
+                <div class="examples">
+
+                    <button
+                        class="example"
+                        data-prompt="Create a simple Discord bot in JavaScript"
+                    >
+                        Create a Discord bot
+                    </button>
+
+                    <button
+                        class="example"
+                        data-prompt="Create a Python script that reads a JSON file and displays its contents"
+                    >
+                        Read a JSON file
+                    </button>
+
+                    <button
+                        class="example"
+                        data-prompt="Create a simple REST API with Express"
+                    >
+                        Create a REST API
+                    </button>
+
+                    <button
+                        class="example"
+                        data-prompt="Create a Python calculator with a command line interface"
+                    >
+                        Create a calculator
+                    </button>
+
+                </div>
+
+            </div>
+
+        </section>
+
+
+        <!-- INPUT -->
+
+        <section class="composer-wrapper">
+
+            <div class="composer">
+
+                <textarea
+                    id="promptInput"
+                    placeholder="Ask Mercury to write some code..."
+                    rows="1"
+                ></textarea>
+
+                <div class="composer-bottom">
+
+                    <div class="composer-options">
+
+                        <select id="complexitySelect">
+
+                            <option value="simple">
+                                Simple
+                            </option>
+
+                            <option
+                                value="medium"
+                                selected
+                            >
+                                Medium
+                            </option>
+
+                            <option value="advanced">
+                                Advanced
+                            </option>
+
+                        </select>
+
+                    </div>
+
+                    <button
+                        id="sendBtn"
+                        class="send"
+                    >
+                        <span id="sendText">
+                            Send
+                        </span>
+
+                        <span
+                            id="loading"
+                            class="loading hidden"
+                        >
+                            ...
+                        </span>
+                    </button>
+
+                </div>
+
+            </div>
+
+            <p class="disclaimer">
+                Mercury generates code for legal and
+                authorized use. Always review generated code
+                before running it.
+            </p>
+
+        </section>
+
+    </main>
+
+</div>
+
+
+<script src="/app.js"></script>
+
+</body>
+</html>
