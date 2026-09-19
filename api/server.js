@@ -1,1164 +1,843 @@
+// ============================================================
+// Mercury's AI-Generator
+// api/server.js
+// ============================================================
+
 const express = require('express');
-const crypto = require('crypto');
 const path = require('path');
+const crypto = require('crypto');
 
 const engine = require('../core/engine');
-const { query } = require('./db');
+const db = require('./db');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// ============================================================
+// CONFIG
+// ============================================================
+
 app.use(express.json({ limit: '1mb' }));
 
-// =====================================================
-// STATIC WEBSITE
-// =====================================================
-
+// Servir frontend/
 app.use(express.static(
-  path.join(__dirname, '../public')
+  path.join(__dirname, '../frontend')
 ));
 
-// =====================================================
-// AUTH
-// =====================================================
-
-const AUTH_SECRET =
-  process.env.AUTH_SECRET ||
-  'mercury-development-secret-change-this';
-
-const TOKEN_LIFETIME =
-  7 * 24 * 60 * 60 * 1000;
-
-
-// Password hashing
-function hashPassword(password) {
-
-  const salt =
-    crypto.randomBytes(16).toString('hex');
-
-  const hash =
-    crypto.scryptSync(
-      password,
-      salt,
-      64
-    ).toString('hex');
-
-  return salt + ':' + hash;
-}
-
-
-// Password verification
-function verifyPassword(
-  password,
-  stored
-) {
-
-  try {
-
-    const parts =
-      stored.split(':');
-
-    if (parts.length !== 2) {
-      return false;
-    }
-
-    const salt = parts[0];
-    const originalHash =
-      Buffer.from(parts[1], 'hex');
-
-    const hash =
-      crypto.scryptSync(
-        password,
-        salt,
-        64
-      );
-
-    return (
-      originalHash.length === hash.length &&
-      crypto.timingSafeEqual(
-        originalHash,
-        hash
-      )
-    );
-
-  } catch (error) {
-
-    return false;
-
-  }
-
-}
-
-
-// Base64 URL
-function base64Url(value) {
-
-  return Buffer
-    .from(value)
-    .toString('base64')
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/g, '');
-
-}
-
-
-// Create token
-function createToken(user) {
-
-  const payload = {
-    id: user.id,
-    email: user.email,
-    exp: Date.now() + TOKEN_LIFETIME
-  };
-
-  const encoded =
-    base64Url(
-      JSON.stringify(payload)
-    );
-
-  const signature =
-    crypto
-      .createHmac(
-        'sha256',
-        AUTH_SECRET
-      )
-      .update(encoded)
-      .digest('base64')
-      .replace(/\+/g, '-')
-      .replace(/\//g, '_')
-      .replace(/=+$/g, '');
-
-  return encoded + '.' + signature;
-
-}
-
-
-// Verify token
-function verifyToken(token) {
-
-  try {
-
-    if (!token) {
-      return null;
-    }
-
-    const parts =
-      token.split('.');
-
-    if (parts.length !== 2) {
-      return null;
-    }
-
-    const encoded = parts[0];
-    const signature = parts[1];
-
-    const expected =
-      crypto
-        .createHmac(
-          'sha256',
-          AUTH_SECRET
-        )
-        .update(encoded)
-        .digest('base64')
-        .replace(/\+/g, '-')
-        .replace(/\//g, '_')
-        .replace(/=+$/g, '');
-
-    if (
-      signature.length !== expected.length
-    ) {
-      return null;
-    }
-
-    if (
-      !crypto.timingSafeEqual(
-        Buffer.from(signature),
-        Buffer.from(expected)
-      )
-    ) {
-      return null;
-    }
-
-    const payload =
-      JSON.parse(
-        Buffer
-          .from(
-            encoded,
-            'base64url'
-          )
-          .toString('utf8')
-      );
-
-    if (
-      !payload.exp ||
-      Date.now() > payload.exp
-    ) {
-      return null;
-    }
-
-    return payload;
-
-  } catch (error) {
-
-    return null;
-
-  }
-
-}
-
-
-// Authentication middleware
-function authenticate(req, res, next) {
-
-  const header =
-    req.headers.authorization || '';
-
-  if (!header.startsWith('Bearer ')) {
-
-    return res.status(401).json({
-      success: false,
-      error: 'No autenticado.'
-    });
-
-  }
-
-  const token =
-    header.slice(7);
-
-  const user =
-    verifyToken(token);
-
-  if (!user) {
-
-    return res.status(401).json({
-      success: false,
-      error: 'Sesión inválida o expirada.'
-    });
-
-  }
-
-  req.user = user;
-
-  next();
-
-}
-
-
-// =====================================================
-// DATABASE INITIALIZATION
-// =====================================================
+// ============================================================
+// DATABASE
+// ============================================================
 
 async function initDatabase() {
-
-  await query(`
+  await db.query(`
     CREATE TABLE IF NOT EXISTS users (
       id SERIAL PRIMARY KEY,
-      email VARCHAR(255) UNIQUE NOT NULL,
+      email TEXT UNIQUE NOT NULL,
       password_hash TEXT NOT NULL,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    );
+      password_salt TEXT NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
   `);
 
-  await query(`
-    CREATE TABLE IF NOT EXISTS conversations (
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS chats (
       id SERIAL PRIMARY KEY,
-      user_id INTEGER NOT NULL
-        REFERENCES users(id)
-        ON DELETE CASCADE,
-      title VARCHAR(255)
-        NOT NULL
-        DEFAULT 'Nueva conversación',
-      created_at TIMESTAMP
-        DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMP
-        DEFAULT CURRENT_TIMESTAMP
-    );
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      title TEXT NOT NULL DEFAULT 'Nuevo chat',
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    )
   `);
 
-  await query(`
+  await db.query(`
     CREATE TABLE IF NOT EXISTS messages (
       id SERIAL PRIMARY KEY,
-      conversation_id INTEGER NOT NULL
-        REFERENCES conversations(id)
-        ON DELETE CASCADE,
-      role VARCHAR(20) NOT NULL,
+      chat_id INTEGER NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
+      role TEXT NOT NULL,
       content TEXT NOT NULL,
-      language VARCHAR(50),
-      created_at TIMESTAMP
-        DEFAULT CURRENT_TIMESTAMP
-    );
+      language TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
   `);
 
-  console.log('🗄️ PostgreSQL: tablas listas.');
-
+  console.log('✅ Base de datos preparada.');
 }
 
+// ============================================================
+// PASSWORDS
+// ============================================================
 
-// =====================================================
+function hashPassword(password, salt = crypto.randomBytes(16).toString('hex')) {
+  const hash = crypto
+    .scryptSync(password, salt, 64)
+    .toString('hex');
+
+  return {
+    hash,
+    salt
+  };
+}
+
+function verifyPassword(password, storedHash, salt) {
+  const hash = crypto
+    .scryptSync(password, salt, 64)
+    .toString('hex');
+
+  const a = Buffer.from(hash, 'hex');
+  const b = Buffer.from(storedHash, 'hex');
+
+  if (a.length !== b.length) {
+    return false;
+  }
+
+  return crypto.timingSafeEqual(a, b);
+}
+
+// ============================================================
+// SIMPLE SESSION TOKENS
+// ============================================================
+
+const sessions = new Map();
+
+function createSession(user) {
+  const token = crypto.randomBytes(32).toString('hex');
+
+  sessions.set(token, {
+    userId: user.id,
+    email: user.email,
+    createdAt: Date.now()
+  });
+
+  return token;
+}
+
+function getSession(req) {
+  const header = req.headers.authorization || '';
+
+  if (!header.startsWith('Bearer ')) {
+    return null;
+  }
+
+  const token = header.slice(7);
+
+  return sessions.get(token) || null;
+}
+
+function requireAuth(req, res, next) {
+  const session = getSession(req);
+
+  if (!session) {
+    return res.status(401).json({
+      success: false,
+      error: 'No has iniciado sesión.'
+    });
+  }
+
+  req.user = session;
+  next();
+}
+
+// ============================================================
 // ROOT
-// =====================================================
+// ============================================================
 
-app.get('/health', (req, res) => {
-
-  res.json({
-    success: true,
-    status: 'online',
-    uptime: process.uptime(),
-    timestamp: new Date().toISOString()
-  });
-
+app.get('/', (req, res) => {
+  res.sendFile(
+    path.join(__dirname, '../frontend/index.html')
+  );
 });
 
+// ============================================================
+// HEALTH
+// ============================================================
 
-app.get('/api/status', (req, res) => {
-
-  res.json({
-    success: true,
-    name: "Mercury's AI-Generator",
-    status: 'online'
-  });
-
-});
-
-
-// =====================================================
-// REGISTER
-// =====================================================
-
-app.post('/api/register', async (req, res) => {
-
+app.get('/health', async (req, res) => {
   try {
-
-    const email =
-      String(req.body.email || '')
-        .trim()
-        .toLowerCase();
-
-    const password =
-      String(req.body.password || '');
-
-    if (!email || !password) {
-
-      return res.status(400).json({
-        success: false,
-        error: 'Correo y contraseña son obligatorios.'
-      });
-
-    }
-
-    if (
-      !email.includes('@') ||
-      email.length > 255
-    ) {
-
-      return res.status(400).json({
-        success: false,
-        error: 'Correo electrónico inválido.'
-      });
-
-    }
-
-    if (password.length < 6) {
-
-      return res.status(400).json({
-        success: false,
-        error: 'La contraseña debe tener al menos 6 caracteres.'
-      });
-
-    }
-
-    const existing =
-      await query(
-        `
-        SELECT id
-        FROM users
-        WHERE email = $1
-        `,
-        [email]
-      );
-
-    if (existing.rows.length > 0) {
-
-      return res.status(409).json({
-        success: false,
-        error: 'Ese correo ya está registrado.'
-      });
-
-    }
-
-    const passwordHash =
-      hashPassword(password);
-
-    const result =
-      await query(
-        `
-        INSERT INTO users
-          (email, password_hash)
-        VALUES
-          ($1, $2)
-        RETURNING
-          id,
-          email,
-          created_at
-        `,
-        [
-          email,
-          passwordHash
-        ]
-      );
-
-    const user =
-      result.rows[0];
-
-    const token =
-      createToken(user);
-
-    res.status(201).json({
-
-      success: true,
-
-      user,
-
-      token
-
-    });
-
-  } catch (error) {
-
-    console.error(
-      'REGISTER ERROR:',
-      error
-    );
-
-    res.status(500).json({
-      success: false,
-      error: 'Error creando la cuenta.'
-    });
-
-  }
-
-});
-
-
-// =====================================================
-// LOGIN
-// =====================================================
-
-app.post('/api/login', async (req, res) => {
-
-  try {
-
-    const email =
-      String(req.body.email || '')
-        .trim()
-        .toLowerCase();
-
-    const password =
-      String(req.body.password || '');
-
-    if (!email || !password) {
-
-      return res.status(400).json({
-        success: false,
-        error: 'Correo y contraseña son obligatorios.'
-      });
-
-    }
-
-    const result =
-      await query(
-        `
-        SELECT
-          id,
-          email,
-          password_hash,
-          created_at
-        FROM users
-        WHERE email = $1
-        `,
-        [email]
-      );
-
-    if (result.rows.length === 0) {
-
-      return res.status(401).json({
-        success: false,
-        error: 'Correo o contraseña incorrectos.'
-      });
-
-    }
-
-    const user =
-      result.rows[0];
-
-    const valid =
-      verifyPassword(
-        password,
-        user.password_hash
-      );
-
-    if (!valid) {
-
-      return res.status(401).json({
-        success: false,
-        error: 'Correo o contraseña incorrectos.'
-      });
-
-    }
-
-    const safeUser = {
-      id: user.id,
-      email: user.email,
-      created_at: user.created_at
-    };
-
-    const token =
-      createToken(safeUser);
-
-    res.json({
-
-      success: true,
-
-      user: safeUser,
-
-      token
-
-    });
-
-  } catch (error) {
-
-    console.error(
-      'LOGIN ERROR:',
-      error
-    );
-
-    res.status(500).json({
-      success: false,
-      error: 'Error iniciando sesión.'
-    });
-
-  }
-
-});
-
-
-// =====================================================
-// CURRENT USER
-// =====================================================
-
-app.get(
-  '/api/me',
-  authenticate,
-  (req, res) => {
+    const result = await db.testConnection();
 
     res.json({
       success: true,
-      user: req.user
+      status: 'online',
+      database: 'connected',
+      databaseTime: result.now,
+      uptime: process.uptime(),
+      timestamp: new Date().toISOString()
     });
-
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      status: 'online',
+      database: 'error',
+      error: error.message
+    });
   }
-);
+});
 
-
-// =====================================================
-// CONVERSATIONS
-// =====================================================
-
-app.get(
-  '/api/conversations',
-  authenticate,
-  async (req, res) => {
-
-    try {
-
-      const result =
-        await query(
-          `
-          SELECT
-            id,
-            title,
-            created_at,
-            updated_at
-          FROM conversations
-          WHERE user_id = $1
-          ORDER BY updated_at DESC
-          `,
-          [req.user.id]
-        );
-
-      res.json({
-        success: true,
-        conversations: result.rows
-      });
-
-    } catch (error) {
-
-      console.error(
-        'CONVERSATIONS ERROR:',
-        error
-      );
-
-      res.status(500).json({
-        success: false,
-        error: 'No se pudieron cargar las conversaciones.'
-      });
-
-    }
-
-  }
-);
-
-
-// =====================================================
-// OPEN CONVERSATION
-// =====================================================
-
-app.get(
-  '/api/conversations/:id',
-  authenticate,
-  async (req, res) => {
-
-    try {
-
-      const id =
-        Number(req.params.id);
-
-      if (!Number.isInteger(id)) {
-
-        return res.status(400).json({
-          success: false,
-          error: 'ID inválido.'
-        });
-
-      }
-
-      const conversation =
-        await query(
-          `
-          SELECT
-            id,
-            title,
-            created_at,
-            updated_at
-          FROM conversations
-          WHERE id = $1
-          AND user_id = $2
-          `,
-          [
-            id,
-            req.user.id
-          ]
-        );
-
-      if (
-        conversation.rows.length === 0
-      ) {
-
-        return res.status(404).json({
-          success: false,
-          error: 'Conversación no encontrada.'
-        });
-
-      }
-
-      const messages =
-        await query(
-          `
-          SELECT
-            id,
-            role,
-            content,
-            language,
-            created_at
-          FROM messages
-          WHERE conversation_id = $1
-          ORDER BY id ASC
-          `,
-          [id]
-        );
-
-      res.json({
-
-        success: true,
-
-        conversation:
-          conversation.rows[0],
-
-        messages:
-          messages.rows
-
-      });
-
-    } catch (error) {
-
-      console.error(
-        'OPEN CHAT ERROR:',
-        error
-      );
-
-      res.status(500).json({
-        success: false,
-        error: 'No se pudo abrir la conversación.'
-      });
-
-    }
-
-  }
-);
-
-
-// =====================================================
-// DELETE CONVERSATION
-// =====================================================
-
-app.delete(
-  '/api/conversations/:id',
-  authenticate,
-  async (req, res) => {
-
-    try {
-
-      const id =
-        Number(req.params.id);
-
-      if (!Number.isInteger(id)) {
-
-        return res.status(400).json({
-          success: false,
-          error: 'ID inválido.'
-        });
-
-      }
-
-      const result =
-        await query(
-          `
-          DELETE FROM conversations
-          WHERE id = $1
-          AND user_id = $2
-          RETURNING id
-          `,
-          [
-            id,
-            req.user.id
-          ]
-        );
-
-      if (
-        result.rows.length === 0
-      ) {
-
-        return res.status(404).json({
-          success: false,
-          error: 'Conversación no encontrada.'
-        });
-
-      }
-
-      res.json({
-        success: true
-      });
-
-    } catch (error) {
-
-      console.error(
-        'DELETE CHAT ERROR:',
-        error
-      );
-
-      res.status(500).json({
-        success: false,
-        error: 'No se pudo eliminar la conversación.'
-      });
-
-    }
-
-  }
-);
-
-
-// =====================================================
-// CHAT + GENERATION
-// =====================================================
-
-app.post(
-  '/api/chat',
-  authenticate,
-  async (req, res) => {
-
-    try {
-
-      const prompt =
-        String(req.body.prompt || '').trim();
-
-      const language =
-        String(
-          req.body.language ||
-          'javascript'
-        ).toLowerCase();
-
-      let conversationId =
-        req.body.conversationId;
-
-      if (!prompt) {
-
-        return res.status(400).json({
-          success: false,
-          error: 'Escribe algo primero.'
-        });
-
-      }
-
-      if (prompt.length > 10000) {
-
-        return res.status(400).json({
-          success: false,
-          error: 'El mensaje es demasiado largo.'
-        });
-
-      }
-
-
-      // -------------------------------------------
-      // CREATE CONVERSATION
-      // -------------------------------------------
-
-      if (!conversationId) {
-
-        let title =
-          prompt
-            .replace(/\s+/g, ' ')
-            .slice(0, 60);
-
-        if (!title) {
-          title = 'Nueva conversación';
-        }
-
-        const created =
-          await query(
-            `
-            INSERT INTO conversations
-              (user_id, title)
-            VALUES
-              ($1, $2)
-            RETURNING
-              id,
-              title,
-              created_at,
-              updated_at
-            `,
-            [
-              req.user.id,
-              title
-            ]
-          );
-
-        conversationId =
-          created.rows[0].id;
-
-      } else {
-
-        conversationId =
-          Number(conversationId);
-
-        const owned =
-          await query(
-            `
-            SELECT id
-            FROM conversations
-            WHERE id = $1
-            AND user_id = $2
-            `,
-            [
-              conversationId,
-              req.user.id
-            ]
-          );
-
-        if (owned.rows.length === 0) {
-
-          return res.status(404).json({
-            success: false,
-            error: 'Conversación no encontrada.'
-          });
-
-        }
-
-      }
-
-
-      // -------------------------------------------
-      // SAVE USER MESSAGE
-      // -------------------------------------------
-
-      await query(
-        `
-        INSERT INTO messages
-          (
-            conversation_id,
-            role,
-            content,
-            language
-          )
-        VALUES
-          ($1, 'user', $2, $3)
-        `,
-        [
-          conversationId,
-          prompt,
-          language
-        ]
-      );
-
-
-      // -------------------------------------------
-      // GENERATE CODE
-      // -------------------------------------------
-
-      const result =
-        await engine.generate(
-          prompt,
-          {
-            language
-          }
-        );
-
-
-      // -------------------------------------------
-      // SAVE AI MESSAGE
-      // -------------------------------------------
-
-      await query(
-        `
-        INSERT INTO messages
-          (
-            conversation_id,
-            role,
-            content,
-            language
-          )
-        VALUES
-          ($1, 'assistant', $2, $3)
-        `,
-        [
-          conversationId,
-          result.code,
-          result.language
-        ]
-      );
-
-
-      // -------------------------------------------
-      // UPDATE DATE
-      // -------------------------------------------
-
-      const updated =
-        await query(
-          `
-          UPDATE conversations
-          SET updated_at = CURRENT_TIMESTAMP
-          WHERE id = $1
-          AND user_id = $2
-          RETURNING
-            id,
-            title,
-            created_at,
-            updated_at
-          `,
-          [
-            conversationId,
-            req.user.id
-          ]
-        );
-
-
-      res.json({
-
-        success: true,
-
-        conversation:
-          updated.rows[0],
-
-        result
-
-      });
-
-    } catch (error) {
-
-      console.error(
-        'CHAT ERROR:',
-        error
-      );
-
-      res.status(400).json({
-        success: false,
-        error: error.message
-      });
-
-    }
-
-  }
-);
-
-
-// =====================================================
+// ============================================================
 // LANGUAGES
-// =====================================================
+// ============================================================
 
-app.get('/api/languages', (req, res) => {
-
+app.get('/languages', (req, res) => {
   try {
-
-    const languages =
-      engine.getSupportedLanguages();
+    const languages = engine.getSupportedLanguages();
 
     res.json({
       success: true,
       count: languages.length,
       languages
     });
-
   } catch (error) {
-
-    console.error(
-      'LANGUAGES ERROR:',
-      error
-    );
+    console.error('LANGUAGES ERROR:', error);
 
     res.status(500).json({
       success: false,
-      error: 'No se pudieron cargar los lenguajes.'
+      error: 'Could not load languages.'
     });
-
   }
-
 });
 
+// ============================================================
+// REGISTER
+// ============================================================
 
-// =====================================================
-// GENERATE DIRECTLY
-// =====================================================
+app.post('/auth/register', async (req, res) => {
+  try {
+    const email = String(req.body.email || '')
+      .trim()
+      .toLowerCase();
 
-app.post(
-  '/api/generate',
-  authenticate,
-  async (req, res) => {
+    const password = String(req.body.password || '');
 
-    try {
-
-      const prompt =
-        String(req.body.prompt || '');
-
-      const language =
-        req.body.language;
-
-      const complexity =
-        req.body.complexity;
-
-      if (!prompt.trim()) {
-
-        return res.status(400).json({
-          success: false,
-          error: 'El prompt es obligatorio.'
-        });
-
-      }
-
-      if (prompt.length > 10000) {
-
-        return res.status(400).json({
-          success: false,
-          error: 'El prompt es demasiado largo.'
-        });
-
-      }
-
-      const result =
-        await engine.generate(
-          prompt,
-          {
-            language,
-            complexity
-          }
-        );
-
-      res.json(result);
-
-    } catch (error) {
-
-      console.error(
-        'GENERATE ERROR:',
-        error
-      );
-
-      res.status(400).json({
+    if (!email || !email.includes('@')) {
+      return res.status(400).json({
         success: false,
-        error: error.message
+        error: 'Introduce un email válido.'
       });
-
     }
 
+    if (password.length < 6) {
+      return res.status(400).json({
+        success: false,
+        error: 'La contraseña debe tener al menos 6 caracteres.'
+      });
+    }
+
+    const existing = await db.query(
+      'SELECT id FROM users WHERE email = $1',
+      [email]
+    );
+
+    if (existing.rows.length > 0) {
+      return res.status(409).json({
+        success: false,
+        error: 'Ese email ya está registrado.'
+      });
+    }
+
+    const passwordData = hashPassword(password);
+
+    const result = await db.query(
+      `
+      INSERT INTO users
+        (email, password_hash, password_salt)
+      VALUES
+        ($1, $2, $3)
+      RETURNING id, email, created_at
+      `,
+      [
+        email,
+        passwordData.hash,
+        passwordData.salt
+      ]
+    );
+
+    const user = result.rows[0];
+
+    const token = createSession(user);
+
+    res.json({
+      success: true,
+      token,
+      user: {
+        id: user.id,
+        email: user.email
+      }
+    });
+
+  } catch (error) {
+    console.error('REGISTER ERROR:', error);
+
+    res.status(500).json({
+      success: false,
+      error: 'No se pudo crear la cuenta.'
+    });
   }
-);
-
-
-// =====================================================
-// 404
-// =====================================================
-
-app.use((req, res) => {
-
-  res.status(404).json({
-    success: false,
-    error: 'Endpoint not found.'
-  });
-
 });
 
+// ============================================================
+// LOGIN
+// ============================================================
 
-// =====================================================
-// START
-// =====================================================
-
-async function start() {
-
+app.post('/auth/login', async (req, res) => {
   try {
+    const email = String(req.body.email || '')
+      .trim()
+      .toLowerCase();
 
-    await initDatabase();
+    const password = String(req.body.password || '');
 
-    app.listen(
-      PORT,
-      '0.0.0.0',
-      () => {
+    const result = await db.query(
+      `
+      SELECT
+        id,
+        email,
+        password_hash,
+        password_salt
+      FROM users
+      WHERE email = $1
+      `,
+      [email]
+    );
 
-        console.log(
-          "🚀 Mercury's AI-Generator running on port " +
-          PORT
-        );
+    if (result.rows.length === 0) {
+      return res.status(401).json({
+        success: false,
+        error: 'Email o contraseña incorrectos.'
+      });
+    }
 
-        console.log(
-          '🌐 Environment: ' +
-          (
-            process.env.NODE_ENV ||
-            'production'
-          )
-        );
+    const user = result.rows[0];
 
+    const valid = verifyPassword(
+      password,
+      user.password_hash,
+      user.password_salt
+    );
+
+    if (!valid) {
+      return res.status(401).json({
+        success: false,
+        error: 'Email o contraseña incorrectos.'
+      });
+    }
+
+    const token = createSession(user);
+
+    res.json({
+      success: true,
+      token,
+      user: {
+        id: user.id,
+        email: user.email
+      }
+    });
+
+  } catch (error) {
+    console.error('LOGIN ERROR:', error);
+
+    res.status(500).json({
+      success: false,
+      error: 'No se pudo iniciar sesión.'
+    });
+  }
+});
+
+// ============================================================
+// LOGOUT
+// ============================================================
+
+app.post('/auth/logout', requireAuth, (req, res) => {
+  const header = req.headers.authorization || '';
+  const token = header.startsWith('Bearer ')
+    ? header.slice(7)
+    : null;
+
+  if (token) {
+    sessions.delete(token);
+  }
+
+  res.json({
+    success: true
+  });
+});
+
+// ============================================================
+// CURRENT USER
+// ============================================================
+
+app.get('/auth/me', requireAuth, async (req, res) => {
+  res.json({
+    success: true,
+    user: {
+      id: req.user.userId,
+      email: req.user.email
+    }
+  });
+});
+
+// ============================================================
+// CREATE CHAT
+// ============================================================
+
+app.post('/chats', requireAuth, async (req, res) => {
+  try {
+    const title =
+      String(req.body.title || 'Nuevo chat')
+        .trim()
+        .slice(0, 100) || 'Nuevo chat';
+
+    const result = await db.query(
+      `
+      INSERT INTO chats
+        (user_id, title)
+      VALUES
+        ($1, $2)
+      RETURNING id, title, created_at, updated_at
+      `,
+      [
+        req.user.userId,
+        title
+      ]
+    );
+
+    res.json({
+      success: true,
+      chat: result.rows[0]
+    });
+
+  } catch (error) {
+    console.error('CREATE CHAT ERROR:', error);
+
+    res.status(500).json({
+      success: false,
+      error: 'No se pudo crear el chat.'
+    });
+  }
+});
+
+// ============================================================
+// LIST CHATS
+// ============================================================
+
+app.get('/chats', requireAuth, async (req, res) => {
+  try {
+    const result = await db.query(
+      `
+      SELECT
+        id,
+        title,
+        created_at,
+        updated_at
+      FROM chats
+      WHERE user_id = $1
+      ORDER BY updated_at DESC
+      `,
+      [req.user.userId]
+    );
+
+    res.json({
+      success: true,
+      chats: result.rows
+    });
+
+  } catch (error) {
+    console.error('LIST CHATS ERROR:', error);
+
+    res.status(500).json({
+      success: false,
+      error: 'No se pudieron cargar los chats.'
+    });
+  }
+});
+
+// ============================================================
+// GET CHAT
+// ============================================================
+
+app.get('/chats/:id', requireAuth, async (req, res) => {
+  try {
+    const chatId = Number(req.params.id);
+
+    const chatResult = await db.query(
+      `
+      SELECT
+        id,
+        title,
+        created_at,
+        updated_at
+      FROM chats
+      WHERE id = $1
+      AND user_id = $2
+      `,
+      [
+        chatId,
+        req.user.userId
+      ]
+    );
+
+    if (chatResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Chat no encontrado.'
+      });
+    }
+
+    const messagesResult = await db.query(
+      `
+      SELECT
+        id,
+        role,
+        content,
+        language,
+        created_at
+      FROM messages
+      WHERE chat_id = $1
+      ORDER BY created_at ASC
+      `,
+      [chatId]
+    );
+
+    res.json({
+      success: true,
+      chat: chatResult.rows[0],
+      messages: messagesResult.rows
+    });
+
+  } catch (error) {
+    console.error('GET CHAT ERROR:', error);
+
+    res.status(500).json({
+      success: false,
+      error: 'No se pudo cargar el chat.'
+    });
+  }
+});
+
+// ============================================================
+// DELETE CHAT
+// ============================================================
+
+app.delete('/chats/:id', requireAuth, async (req, res) => {
+  try {
+    const chatId = Number(req.params.id);
+
+    const result = await db.query(
+      `
+      DELETE FROM chats
+      WHERE id = $1
+      AND user_id = $2
+      RETURNING id
+      `,
+      [
+        chatId,
+        req.user.userId
+      ]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Chat no encontrado.'
+      });
+    }
+
+    res.json({
+      success: true
+    });
+
+  } catch (error) {
+    console.error('DELETE CHAT ERROR:', error);
+
+    res.status(500).json({
+      success: false,
+      error: 'No se pudo borrar el chat.'
+    });
+  }
+});
+
+// ============================================================
+// SAVE MESSAGE
+// ============================================================
+
+async function saveMessage(
+  chatId,
+  role,
+  content,
+  language = null
+) {
+  await db.query(
+    `
+    INSERT INTO messages
+      (chat_id, role, content, language)
+    VALUES
+      ($1, $2, $3, $4)
+    `,
+    [
+      chatId,
+      role,
+      content,
+      language
+    ]
+  );
+
+  await db.query(
+    `
+    UPDATE chats
+    SET updated_at = NOW()
+    WHERE id = $1
+    `,
+    [chatId]
+  );
+}
+
+// ============================================================
+// GENERATE
+// ============================================================
+
+app.post('/generate', requireAuth, async (req, res) => {
+  try {
+    const {
+      prompt,
+      language,
+      complexity,
+      obfuscate,
+      encrypt,
+      chatId
+    } = req.body;
+
+    if (!prompt || typeof prompt !== 'string') {
+      return res.status(400).json({
+        success: false,
+        error: "El campo 'prompt' es obligatorio."
+      });
+    }
+
+    if (prompt.length > 10000) {
+      return res.status(400).json({
+        success: false,
+        error: 'El prompt es demasiado largo.'
+      });
+    }
+
+    let currentChatId = Number(chatId);
+
+    // Si no existe chat, crear uno
+    if (!currentChatId) {
+      const chat = await db.query(
+        `
+        INSERT INTO chats
+          (user_id, title)
+        VALUES
+          ($1, $2)
+        RETURNING id
+        `,
+        [
+          req.user.userId,
+          prompt.slice(0, 60)
+        ]
+      );
+
+      currentChatId = chat.rows[0].id;
+    } else {
+      // Comprobar que el chat pertenece al usuario
+      const ownership = await db.query(
+        `
+        SELECT id
+        FROM chats
+        WHERE id = $1
+        AND user_id = $2
+        `,
+        [
+          currentChatId,
+          req.user.userId
+        ]
+      );
+
+      if (ownership.rows.length === 0) {
+        return res.status(403).json({
+          success: false,
+          error: 'Ese chat no pertenece a tu cuenta.'
+        });
+      }
+    }
+
+    // Guardar prompt
+    await saveMessage(
+      currentChatId,
+      'user',
+      prompt,
+      language || null
+    );
+
+    const result = await engine.generate(
+      prompt,
+      {
+        language,
+        complexity,
+        obfuscate: obfuscate === true,
+        encrypt: encrypt === true
       }
     );
 
-  } catch (error) {
+    // Guardar respuesta
+    await saveMessage(
+      currentChatId,
+      'assistant',
+      result.code,
+      result.language
+    );
 
+    res.json({
+      ...result,
+      chatId: currentChatId
+    });
+
+  } catch (error) {
+    console.error('GENERATE ERROR:', error);
+
+    res.status(400).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// ============================================================
+// GENERATE MULTI
+// ============================================================
+
+app.post('/generate-multi', requireAuth, async (req, res) => {
+  try {
+    const {
+      prompt,
+      languages,
+      complexity,
+      obfuscate,
+      encrypt
+    } = req.body;
+
+    if (!prompt || typeof prompt !== 'string') {
+      return res.status(400).json({
+        success: false,
+        error: "El campo 'prompt' es obligatorio."
+      });
+    }
+
+    if (!Array.isArray(languages)) {
+      return res.status(400).json({
+        success: false,
+        error: "'languages' debe ser un array."
+      });
+    }
+
+    if (languages.length === 0 || languages.length > 10) {
+      return res.status(400).json({
+        success: false,
+        error: 'Debes indicar entre 1 y 10 lenguajes.'
+      });
+    }
+
+    const results = await engine.generateMulti(
+      prompt,
+      languages,
+      {
+        complexity,
+        obfuscate: obfuscate === true,
+        encrypt: encrypt === true
+      }
+    );
+
+    res.json({
+      success: true,
+      prompt,
+      results
+    });
+
+  } catch (error) {
+    console.error('GENERATE MULTI ERROR:', error);
+
+    res.status(400).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// ============================================================
+// API 404
+// ============================================================
+
+app.use((req, res, next) => {
+  // Si parece una petición de API, devolver JSON.
+  if (
+    req.path.startsWith('/auth') ||
+    req.path.startsWith('/chats') ||
+    req.path.startsWith('/generate') ||
+    req.path === '/languages' ||
+    req.path === '/health'
+  ) {
+    return res.status(404).json({
+      success: false,
+      error: 'Endpoint not found.'
+    });
+  }
+
+  next();
+});
+
+// ============================================================
+// FRONTEND FALLBACK
+// ============================================================
+
+app.use((req, res) => {
+  res.sendFile(
+    path.join(__dirname, '../frontend/index.html')
+  );
+});
+
+// ============================================================
+// ERROR HANDLER
+// ============================================================
+
+app.use((error, req, res, next) => {
+  console.error('SERVER ERROR:', error);
+
+  res.status(500).json({
+    success: false,
+    error: 'Internal server error.'
+  });
+});
+
+// ============================================================
+// START
+// ============================================================
+
+async function start() {
+  try {
+    await initDatabase();
+
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(
+        `🚀 Mercury's AI-Generator running on port ${PORT}`
+      );
+
+      console.log(
+        `🌐 Environment: ${process.env.NODE_ENV || 'production'}`
+      );
+
+      console.log(
+        `📁 Frontend: ${path.join(__dirname, '../frontend')}`
+      );
+    });
+
+  } catch (error) {
     console.error(
-      '❌ DATABASE START ERROR:',
+      '❌ Error iniciando Mercury:',
       error
     );
 
     process.exit(1);
-
   }
-
 }
 
 start();
