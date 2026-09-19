@@ -1,0 +1,12 @@
+{
+  "name": "mercury's ai-generator",
+  "version": "1.0.0",
+  "description": "Multi-language AI code generator",
+  "main": "api/server.js",
+  "scripts": {
+    "start": "node api/server.js"
+  },
+  "dependencies": {
+    "express": "^5.1.0"
+  }
+}
