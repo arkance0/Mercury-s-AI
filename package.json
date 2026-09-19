@@ -8,6 +8,8 @@
   },
   "dependencies": {
     "express": "^5.1.0",
-    "pg": "^8.13.1"
+    "pg": "^8.13.1",
+    "bcryptjs": "^2.4.3",
+    "jsonwebtoken": "^9.0.2"
   }
 }
