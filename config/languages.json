@@ -1,0 +1,62 @@
+{
+  "javascript": {
+    "name": "JavaScript",
+    "extension": ".js",
+    "description": "Generación de código JavaScript para Node.js y aplicaciones web."
+  },
+  "python": {
+    "name": "Python",
+    "extension": ".py",
+    "description": "Generación de código Python para automatización y aplicaciones."
+  },
+  "bash": {
+    "name": "Bash",
+    "extension": ".sh",
+    "description": "Generación de scripts Bash para tareas de terminal y automatización."
+  },
+  "c": {
+    "name": "C",
+    "extension": ".c",
+    "description": "Generación de código C."
+  },
+  "cpp": {
+    "name": "C++",
+    "extension": ".cpp",
+    "description": "Generación de código C++."
+  },
+  "java": {
+    "name": "Java",
+    "extension": ".java",
+    "description": "Generación de código Java."
+  },
+  "go": {
+    "name": "Go",
+    "extension": ".go",
+    "description": "Generación de código Go."
+  },
+  "rust": {
+    "name": "Rust",
+    "extension": ".rs",
+    "description": "Generación de código Rust."
+  },
+  "php": {
+    "name": "PHP",
+    "extension": ".php",
+    "description": "Generación de código PHP."
+  },
+  "ruby": {
+    "name": "Ruby",
+    "extension": ".rb",
+    "description": "Generación de código Ruby."
+  },
+  "powershell": {
+    "name": "PowerShell",
+    "extension": ".ps1",
+    "description": "Generación de scripts PowerShell."
+  },
+  "sql": {
+    "name": "SQL",
+    "extension": ".sql",
+    "description": "Generación de consultas y estructuras SQL."
+  }
+}
