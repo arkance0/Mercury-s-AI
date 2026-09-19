@@ -1,4 +1,4 @@
-// Mercury's IA | script_generator.js
+// Mercury's AI | script_generator.js
 // Genera scripts JavaScript avanzados basado en prompts del usuario
 // **¡ADVERTENCIA! Solo para uso teórico en entornos simulados.**
 
