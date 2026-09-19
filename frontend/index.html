@@ -1,14 +1,11 @@
 <!DOCTYPE html>
 <html lang="es">
-
 <head>
-
 <meta charset="UTF-8">
-
 <meta
   name="viewport"
-  content="width=device-width, initial-scale=1.0"
->
+  content="width=device-width, initial-scale=1.0, maximum-scale=1.0"
+/>
 
 <title>Mercury's AI-Generator</title>
 
@@ -21,17 +18,12 @@
 html,
 body {
   margin: 0;
+  padding: 0;
   width: 100%;
   height: 100%;
-}
-
-body {
-  background: #09090d;
-  color: #fff;
-  font-family:
-    Arial,
-    Helvetica,
-    sans-serif;
+  background: #0b0c12;
+  color: #f4f4f5;
+  font-family: Arial, Helvetica, sans-serif;
 }
 
 button,
@@ -49,612 +41,450 @@ button {
   display: none !important;
 }
 
-
-/* =========================================
+/* =========================================================
    LOGIN
-========================================= */
+========================================================= */
 
 #authScreen {
-  width: 100%;
   min-height: 100vh;
-
   display: flex;
   align-items: center;
   justify-content: center;
-
   padding: 20px;
 }
 
 .authBox {
   width: 100%;
   max-width: 430px;
-
+  background: #15161d;
+  border: 1px solid #292b36;
+  border-radius: 24px;
   padding: 30px;
-
-  background: #15151d;
-
-  border:
-    1px solid #2c2c38;
-
-  border-radius: 22px;
-
-  box-shadow:
-    0 20px 70px
-    rgba(0, 0, 0, .45);
+  box-shadow: 0 20px 70px rgba(0,0,0,.45);
 }
 
 .logo {
   text-align: center;
-
-  font-size: 30px;
+  font-size: 32px;
   font-weight: 800;
-
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
 
 .subtitle {
   text-align: center;
-
-  color: #9696a6;
-
+  color: #999baa;
   margin-bottom: 25px;
 }
 
-.authBox input {
+.authInput {
   width: 100%;
-
-  padding: 15px;
-
+  padding: 16px;
   margin-bottom: 12px;
-
-  border:
-    1px solid #353541;
-
-  border-radius: 12px;
-
-  background: #0d0d13;
-
-  color: #fff;
-
+  border-radius: 14px;
+  border: 1px solid #30323e;
+  background: #0f1016;
+  color: white;
   outline: none;
 }
 
-.authBox input:focus {
+.authInput:focus {
   border-color: #6d5dfc;
 }
 
-.primaryButton,
-.secondaryButton {
+.authButton {
   width: 100%;
-
+  padding: 15px;
+  margin-top: 6px;
   border: 0;
-
-  border-radius: 12px;
-
-  padding: 14px;
-
+  border-radius: 14px;
+  background: #6d5dfc;
+  color: white;
   font-weight: 700;
 }
 
-.primaryButton {
-  background: #6d5dfc;
-  color: #fff;
-}
-
-.secondaryButton {
-  margin-top: 10px;
-
-  background: #292936;
-  color: #fff;
+.authButton.secondary {
+  background: #292a35;
 }
 
 .authMessage {
   margin-top: 15px;
-
-  padding: 12px;
-
-  border-radius: 10px;
-
-  background: #0d0d13;
-
-  color: #ccc;
-
+  padding: 13px;
+  border-radius: 12px;
+  background: #0f1016;
+  color: #bfc1ce;
   text-align: center;
 }
 
-
-/* =========================================
+/* =========================================================
    APP
-========================================= */
+========================================================= */
 
 #app {
-  width: 100%;
+  display: none;
   height: 100vh;
-
-  display: flex;
-
   overflow: hidden;
 }
 
-
-/* =========================================
-   SIDEBAR
-========================================= */
-
-.sidebar {
-  width: 280px;
-  min-width: 280px;
-  height: 100%;
-
+.app {
   display: flex;
-  flex-direction: column;
-
-  background: #111118;
-
-  border-right:
-    1px solid #292936;
+  height: 100%;
 }
 
-.sidebarTop {
-  padding: 15px;
+/* =========================================================
+   SIDEBAR
+========================================================= */
 
-  border-bottom:
-    1px solid #292936;
+.sidebar {
+  width: 270px;
+  background: #111218;
+  border-right: 1px solid #252631;
+  padding: 15px;
+  display: flex;
+  flex-direction: column;
 }
 
 .brand {
-  font-size: 20px;
   font-weight: 800;
-
-  margin-bottom: 14px;
+  font-size: 20px;
+  padding: 10px;
+  margin-bottom: 12px;
 }
 
 .newChat {
   width: 100%;
-
-  padding: 12px;
-
-  border:
-    1px solid #3a3a48;
-
-  border-radius: 10px;
-
-  background: #1c1c25;
-
-  color: #fff;
+  padding: 13px;
+  border: 0;
+  border-radius: 12px;
+  background: #6d5dfc;
+  color: white;
+  font-weight: 700;
+  margin-bottom: 15px;
 }
 
-.history {
+.chatList {
   flex: 1;
-
   overflow-y: auto;
-
-  padding: 10px;
 }
 
 .chatItem {
   display: flex;
-
-  gap: 4px;
-
-  margin-bottom: 5px;
-}
-
-.chatOpen {
-  flex: 1;
-
-  min-width: 0;
-
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
   padding: 11px;
+  border-radius: 10px;
+  color: #d7d8df;
+  margin-bottom: 5px;
+  cursor: pointer;
+}
 
-  border: 0;
+.chatItem:hover,
+.chatItem.active {
+  background: #20212b;
+}
 
-  border-radius: 9px;
-
-  background: transparent;
-
-  color: #c7c7d2;
-
-  text-align: left;
-
+.chatTitle {
+  flex: 1;
   overflow: hidden;
-
   white-space: nowrap;
-
   text-overflow: ellipsis;
 }
 
-.chatOpen:hover {
-  background: #20202a;
-
-  color: #fff;
-}
-
-.chatDelete {
-  padding: 7px;
-
+.deleteChat {
   border: 0;
-
   background: transparent;
-
-  color: #777;
+  color: #888b98;
+  font-size: 16px;
 }
 
-.chatDelete:hover {
-  color: #ff6666;
-}
-
-.sidebarBottom {
-  padding: 13px;
-
-  border-top:
-    1px solid #292936;
-}
-
-.userEmail {
-  font-size: 12px;
-
-  color: #9999aa;
-
-  margin-bottom: 10px;
-
-  overflow: hidden;
-
-  text-overflow: ellipsis;
-
-  white-space: nowrap;
+.userBox {
+  border-top: 1px solid #292a34;
+  padding-top: 12px;
+  color: #9ea0ad;
+  font-size: 13px;
 }
 
 .logout {
   width: 100%;
-
+  margin-top: 10px;
   padding: 10px;
-
   border: 0;
-
-  border-radius: 9px;
-
-  background: #292936;
-
-  color: #fff;
+  border-radius: 10px;
+  background: #24252f;
+  color: white;
 }
 
-
-/* =========================================
+/* =========================================================
    MAIN
-========================================= */
+========================================================= */
 
 .main {
   flex: 1;
-
-  min-width: 0;
-
-  height: 100%;
-
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
 .topbar {
-  height: 58px;
-  min-height: 58px;
-
+  height: 60px;
+  border-bottom: 1px solid #252631;
   display: flex;
-
   align-items: center;
-
+  padding: 0 18px;
   gap: 10px;
-
-  padding: 10px 15px;
-
-  background: #111118;
-
-  border-bottom:
-    1px solid #292936;
 }
 
-.menu {
+.mobileMenu {
   display: none;
-
-  border: 0;
-
-  background: transparent;
-
-  color: #fff;
-
-  font-size: 23px;
 }
 
-.chatTitle {
+.topTitle {
   font-weight: 700;
-
-  overflow: hidden;
-
-  white-space: nowrap;
-
-  text-overflow: ellipsis;
 }
-
-
-/* =========================================
-   MESSAGES
-========================================= */
 
 .messages {
   flex: 1;
-
   overflow-y: auto;
-
-  padding: 25px 15px;
+  padding: 25px;
+  scroll-behavior: smooth;
 }
 
-.welcome {
-  width: 100%;
-  height: 100%;
-
-  display: flex;
-
-  align-items: center;
-
-  justify-content: center;
-
+.empty {
+  max-width: 650px;
+  margin: 100px auto;
   text-align: center;
-
-  color: #888899;
 }
 
-.welcome h2 {
-  color: #fff;
+.empty h1 {
+  font-size: 34px;
+  margin-bottom: 10px;
 }
 
-.messageRow {
-  width: 100%;
+.empty p {
+  color: #999baa;
+}
 
+/* =========================================================
+   MESSAGE
+========================================================= */
+
+.message {
   max-width: 900px;
-
   margin: 0 auto 20px;
-
-  display: flex;
 }
 
-.messageRow.user {
-  justify-content: flex-end;
-}
-
-.bubble {
-  max-width: 85%;
-
-  padding: 14px 16px;
-
-  border-radius: 15px;
-
-  line-height: 1.5;
-
-  white-space: pre-wrap;
-
-  word-break: break-word;
-}
-
-.messageRow.user .bubble {
-  background: #5d50dc;
-}
-
-.messageRow.assistant .bubble {
-  background: #181821;
-
-  border:
-    1px solid #2d2d39;
-}
-
-.codeTitle {
-  color: #aaa;
-
-  font-size: 12px;
-
-  margin-bottom: 8px;
-}
-
-.code {
-  margin: 0;
-
-  padding: 14px;
-
-  overflow-x: auto;
-
-  background: #09090d;
-
-  border:
-    1px solid #30303c;
-
-  border-radius: 10px;
-
-  font-family: monospace;
-
+.messageRole {
   font-size: 13px;
-
-  white-space: pre;
+  color: #999baa;
+  margin-bottom: 7px;
 }
 
-.codeButtons {
+.userMessage {
+  background: #1c1d26;
+  padding: 15px;
+  border-radius: 15px;
+  white-space: pre-wrap;
+}
+
+.assistantMessage {
+  color: #e9e9ee;
+}
+
+/* =========================================================
+   CODE BOX
+========================================================= */
+
+.codeBox {
+  margin-top: 10px;
+  border: 1px solid #30323e;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #0b0c10;
+}
+
+.codeHeader {
+  height: 42px;
+  padding: 0 10px;
   display: flex;
-
-  gap: 8px;
-
-  margin-top: 9px;
+  align-items: center;
+  justify-content: space-between;
+  background: #181921;
+  border-bottom: 1px solid #292a33;
 }
 
-.smallButton {
-  padding: 8px 10px;
+.codeLanguage {
+  color: #aaaebb;
+  font-size: 13px;
+}
 
-  border: 0;
-
+.copyButton {
+  border: 1px solid #383a47;
+  background: #242631;
+  color: white;
   border-radius: 8px;
-
-  background: #292936;
-
-  color: #fff;
-
+  padding: 6px 10px;
   font-size: 12px;
 }
 
-
-/* =========================================
-   COMPOSER
-========================================= */
-
-.composer {
-  padding:
-    10px 15px 18px;
-
-  background: #111118;
-
-  border-top:
-    1px solid #292936;
+.copyButton:hover {
+  background: #343643;
 }
 
-.composerInner {
-  width: 100%;
+.codeContent {
+  max-height: 360px;
+  overflow: auto;
+  padding: 15px;
+}
 
-  max-width: 900px;
+.codeContent pre {
+  margin: 0;
+  white-space: pre;
+  font-family: "Courier New", monospace;
+  font-size: 13px;
+  line-height: 1.5;
+}
 
-  margin: auto;
+/* =========================================================
+   COMPOSER
+========================================================= */
+
+.composerArea {
+  border-top: 1px solid #252631;
+  padding: 12px 18px 16px;
+  background: #0f1016;
 }
 
 .controls {
+  max-width: 900px;
+  margin: auto;
   display: flex;
-
   gap: 8px;
-
   margin-bottom: 8px;
 }
 
-.controls select {
+.select {
+  background: #191a22;
+  color: white;
+  border: 1px solid #30323d;
+  border-radius: 9px;
   padding: 8px;
-
-  border:
-    1px solid #30303d;
-
-  border-radius: 8px;
-
-  background: #1b1b24;
-
-  color: #fff;
 }
 
-.promptRow {
+.composer {
+  max-width: 900px;
+  margin: auto;
   display: flex;
-
-  gap: 9px;
+  gap: 8px;
 }
 
-#prompt {
+.prompt {
   flex: 1;
-
   min-height: 52px;
-
-  max-height: 180px;
-
+  max-height: 130px;
   resize: none;
-
-  padding: 14px;
-
-  border:
-    1px solid #30303d;
-
-  border-radius: 12px;
-
-  background: #0d0d13;
-
-  color: #fff;
-
+  padding: 15px;
+  border-radius: 14px;
+  border: 1px solid #30323e;
+  background: #191a22;
+  color: white;
   outline: none;
 }
 
-#prompt:focus {
+.prompt:focus {
   border-color: #6d5dfc;
 }
 
 .send {
   width: 55px;
-
-  min-width: 55px;
-
   border: 0;
-
-  border-radius: 12px;
-
+  border-radius: 14px;
   background: #6d5dfc;
-
-  color: #fff;
-
+  color: white;
   font-size: 20px;
 }
 
-
-/* =========================================
+/* =========================================================
    MOBILE
-========================================= */
+========================================================= */
 
 @media (max-width: 700px) {
 
   .sidebar {
     position: fixed;
-
-    z-index: 100;
-
+    z-index: 50;
     left: -290px;
-
     top: 0;
     bottom: 0;
-
-    transition:
-      left .2s ease;
+    transition: left .2s;
   }
 
   .sidebar.open {
     left: 0;
   }
 
-  .menu {
+  .mobileMenu {
     display: block;
+    border: 0;
+    background: transparent;
+    color: white;
+    font-size: 24px;
   }
 
   .messages {
-    padding:
-      15px 10px;
+    padding: 15px;
   }
 
-  .bubble {
-    max-width: 92%;
+  .empty {
+    margin: 70px auto;
   }
 
-  .composer {
+  .empty h1 {
+    font-size: 27px;
+  }
+
+  .composerArea {
     padding: 8px;
   }
 
-  .topbar {
-    height: 54px;
-    min-height: 54px;
+  .controls {
+    overflow-x: auto;
   }
 
-  .authBox {
-    padding: 24px;
+  .select {
+    min-width: 120px;
   }
 
+  .composer {
+    gap: 6px;
+  }
+
+  .prompt {
+    min-height: 48px;
+  }
+
+  .send {
+    width: 50px;
+  }
+
+  .codeContent {
+    max-height: 280px;
+  }
+
+  .codeContent pre {
+    font-size: 12px;
+  }
 }
 
 </style>
-
 </head>
 
 <body>
 
+<!-- =======================================================
+     AUTH
+======================================================= -->
 
-<!-- =========================================
-     AUTH SCREEN
-========================================= -->
-
-<div id="authScreen">
+<section id="authScreen">
 
   <div class="authBox">
 
@@ -663,62 +493,64 @@ button {
     </div>
 
     <div class="subtitle">
-      Tu asistente especializado en programación
+      Crea tu cuenta o inicia sesión
     </div>
 
     <input
       id="email"
+      class="authInput"
       type="email"
-      placeholder="Correo electrónico"
+      placeholder="Email"
       autocomplete="email"
     >
 
     <input
       id="password"
+      class="authInput"
       type="password"
       placeholder="Contraseña"
       autocomplete="current-password"
     >
 
     <button
-      class="primaryButton"
-      onclick="registerUser()"
+      class="authButton"
+      onclick="register()"
     >
       Crear cuenta
     </button>
 
     <button
-      class="secondaryButton"
-      onclick="loginUser()"
+      class="authButton secondary"
+      onclick="login()"
     >
       Iniciar sesión
     </button>
 
     <div
       id="authMessage"
-      class="authMessage hidden"
-    ></div>
+      class="authMessage"
+    >
+      Introduce tus datos.
+    </div>
 
   </div>
 
-</div>
+</section>
 
-
-<!-- =========================================
+<!-- =======================================================
      APP
-========================================= -->
+======================================================= -->
 
-<div
-  id="app"
-  class="hidden"
->
+<section id="app">
 
-  <aside
-    id="sidebar"
-    class="sidebar"
-  >
+  <div class="app">
 
-    <div class="sidebarTop">
+    <!-- SIDEBAR -->
+
+    <aside
+      id="sidebar"
+      class="sidebar"
+    >
 
       <div class="brand">
         Mercury ⚡
@@ -728,88 +560,76 @@ button {
         class="newChat"
         onclick="newChat()"
       >
-        ＋ Nueva conversación
+        + Nuevo chat
       </button>
 
-    </div>
-
-    <div
-      id="history"
-      class="history"
-    ></div>
-
-    <div class="sidebarBottom">
-
       <div
-        id="userEmail"
-        class="userEmail"
+        id="chatList"
+        class="chatList"
       ></div>
 
-      <button
-        class="logout"
-        onclick="logout()"
-      >
-        Cerrar sesión
-      </button>
+      <div class="userBox">
+        <div id="userEmail"></div>
 
-    </div>
-
-  </aside>
-
-
-  <main class="main">
-
-    <header class="topbar">
-
-      <button
-        class="menu"
-        onclick="toggleSidebar()"
-      >
-        ☰
-      </button>
-
-      <div
-        id="chatTitle"
-        class="chatTitle"
-      >
-        Nueva conversación
+        <button
+          class="logout"
+          onclick="logout()"
+        >
+          Cerrar sesión
+        </button>
       </div>
 
-    </header>
+    </aside>
 
+    <!-- MAIN -->
 
-    <section
-      id="messages"
-      class="messages"
-    >
+    <main class="main">
 
-      <div class="welcome">
+      <header class="topbar">
 
-        <div>
+        <button
+          class="mobileMenu"
+          onclick="toggleSidebar()"
+        >
+          ☰
+        </button>
 
-          <h2>
+        <div
+          id="topTitle"
+          class="topTitle"
+        >
+          Nuevo chat
+        </div>
+
+      </header>
+
+      <div
+        id="messages"
+        class="messages"
+      >
+
+        <div class="empty">
+
+          <h1>
             ¿Qué quieres programar?
-          </h2>
+          </h1>
 
           <p>
-            Pídeme crear, explicar,
-            corregir o mejorar código.
+            Pídeme crear, explicar, corregir o mejorar código.
           </p>
 
         </div>
 
       </div>
 
-    </section>
-
-
-    <div class="composer">
-
-      <div class="composerInner">
+      <div class="composerArea">
 
         <div class="controls">
 
-          <select id="language">
+          <select
+            id="language"
+            class="select"
+          >
 
             <option value="javascript">
               JavaScript
@@ -861,17 +681,37 @@ button {
 
           </select>
 
+          <select
+            id="complexity"
+            class="select"
+          >
+
+            <option value="simple">
+              Simple
+            </option>
+
+            <option value="medium" selected>
+              Medio
+            </option>
+
+            <option value="complex">
+              Complejo
+            </option>
+
+          </select>
+
         </div>
 
-
-        <div class="promptRow">
+        <div class="composer">
 
           <textarea
             id="prompt"
-            placeholder="Escribe lo que quieres programar..."
+            class="prompt"
+            placeholder="Escribe lo que quieres crear..."
           ></textarea>
 
           <button
+            id="sendButton"
             class="send"
             onclick="sendMessage()"
           >
@@ -882,701 +722,534 @@ button {
 
       </div>
 
-    </div>
+    </main>
 
-  </main>
+  </div>
 
-</div>
-
+</section>
 
 <script>
 
+/* =========================================================
+   STATE
+========================================================= */
+
 let token =
-  localStorage.getItem(
-    'mercury_token'
-  );
+  localStorage.getItem('mercury_token') || '';
 
-let currentConversation = null;
+let currentChatId = null;
 
-
-// ============================================
-// API
-// ============================================
+/* =========================================================
+   HELPERS
+========================================================= */
 
 async function api(
   url,
   options = {}
 ) {
 
-  const headers = {
+  options.headers = {
     'Content-Type': 'application/json',
     ...(options.headers || {})
   };
 
   if (token) {
-
-    headers.Authorization =
+    options.headers.Authorization =
       'Bearer ' + token;
-
   }
 
-  return fetch(
-    url,
+  const response =
+    await fetch(url, options);
+
+  const data =
+    await response.json()
+      .catch(() => ({
+        success: false,
+        error: 'Respuesta inválida del servidor.'
+      }));
+
+  return {
+    response,
+    data
+  };
+}
+
+function showAuthMessage(text) {
+  document.getElementById(
+    'authMessage'
+  ).textContent = text;
+}
+
+/* =========================================================
+   REGISTER
+========================================================= */
+
+async function register() {
+
+  const email =
+    document.getElementById('email')
+      .value.trim();
+
+  const password =
+    document.getElementById('password')
+      .value;
+
+  if (!email || !password) {
+    showAuthMessage(
+      '❌ Completa email y contraseña.'
+    );
+    return;
+  }
+
+  const result = await api(
+    '/auth/register',
     {
-      ...options,
-      headers
+      method: 'POST',
+      body: JSON.stringify({
+        email,
+        password
+      })
     }
   );
 
-}
-
-
-// ============================================
-// AUTH MESSAGE
-// ============================================
-
-function showAuthMessage(
-  text
-) {
-
-  const box =
-    document.getElementById(
-      'authMessage'
+  if (!result.data.success) {
+    showAuthMessage(
+      '❌ ' + result.data.error
     );
+    return;
+  }
 
-  box.textContent = text;
+  token = result.data.token;
 
-  box.classList.remove(
-    'hidden'
+  localStorage.setItem(
+    'mercury_token',
+    token
   );
 
+  showApp(
+    result.data.user
+  );
 }
 
+/* =========================================================
+   LOGIN
+========================================================= */
 
-// ============================================
-// REGISTER
-// ============================================
-
-async function registerUser() {
+async function login() {
 
   const email =
-    document
-      .getElementById('email')
-      .value
-      .trim();
+    document.getElementById('email')
+      .value.trim();
 
   const password =
-    document
-      .getElementById('password')
+    document.getElementById('password')
       .value;
 
   if (!email || !password) {
-
     showAuthMessage(
-      'Introduce correo y contraseña.'
+      '❌ Completa email y contraseña.'
     );
-
-    return;
-
-  }
-
-  try {
-
-    const response =
-      await api(
-        '/api/register',
-        {
-          method: 'POST',
-
-          body:
-            JSON.stringify({
-              email,
-              password
-            })
-        }
-      );
-
-    const data =
-      await response.json();
-
-    if (!response.ok) {
-
-      showAuthMessage(
-        '❌ ' +
-        (
-          data.error ||
-          'No se pudo crear la cuenta.'
-        )
-      );
-
-      return;
-
-    }
-
-    token =
-      data.token;
-
-    localStorage.setItem(
-      'mercury_token',
-      token
-    );
-
-    await startApp();
-
-  } catch (error) {
-
-    console.error(error);
-
-    showAuthMessage(
-      '❌ Error de conexión.'
-    );
-
-  }
-
-}
-
-
-// ============================================
-// LOGIN
-// ============================================
-
-async function loginUser() {
-
-  const email =
-    document
-      .getElementById('email')
-      .value
-      .trim();
-
-  const password =
-    document
-      .getElementById('password')
-      .value;
-
-  if (!email || !password) {
-
-    showAuthMessage(
-      'Introduce correo y contraseña.'
-    );
-
-    return;
-
-  }
-
-  try {
-
-    const response =
-      await api(
-        '/api/login',
-        {
-          method: 'POST',
-
-          body:
-            JSON.stringify({
-              email,
-              password
-            })
-        }
-      );
-
-    const data =
-      await response.json();
-
-    if (!response.ok) {
-
-      showAuthMessage(
-        '❌ ' +
-        (
-          data.error ||
-          'No se pudo iniciar sesión.'
-        )
-      );
-
-      return;
-
-    }
-
-    token =
-      data.token;
-
-    localStorage.setItem(
-      'mercury_token',
-      token
-    );
-
-    await startApp();
-
-  } catch (error) {
-
-    console.error(error);
-
-    showAuthMessage(
-      '❌ Error de conexión.'
-    );
-
-  }
-
-}
-
-
-// ============================================
-// START APP
-// ============================================
-
-async function startApp() {
-
-  const response =
-    await api('/api/me');
-
-  if (!response.ok) {
-
-    logout();
-
-    return;
-
-  }
-
-  const data =
-    await response.json();
-
-  document
-    .getElementById('authScreen')
-    .classList.add('hidden');
-
-  document
-    .getElementById('app')
-    .classList.remove('hidden');
-
-  document
-    .getElementById('userEmail')
-    .textContent =
-      data.user.email;
-
-  await loadConversations();
-
-}
-
-
-// ============================================
-// LOAD HISTORY
-// ============================================
-
-async function loadConversations() {
-
-  const response =
-    await api(
-      '/api/conversations'
-    );
-
-  if (!response.ok) {
     return;
   }
 
-  const data =
-    await response.json();
-
-  const history =
-    document.getElementById(
-      'history'
-    );
-
-  history.innerHTML = '';
-
-  data.conversations.forEach(
-    function(conversation) {
-
-      const row =
-        document.createElement(
-          'div'
-        );
-
-      row.className =
-        'chatItem';
-
-
-      const open =
-        document.createElement(
-          'button'
-        );
-
-      open.className =
-        'chatOpen';
-
-      open.textContent =
-        conversation.title;
-
-      open.onclick =
-        function() {
-
-          openConversation(
-            conversation.id
-          );
-
-        };
-
-
-      const del =
-        document.createElement(
-          'button'
-        );
-
-      del.className =
-        'chatDelete';
-
-      del.textContent =
-        '🗑️';
-
-      del.onclick =
-        function(event) {
-
-          event.stopPropagation();
-
-          deleteConversation(
-            conversation.id
-          );
-
-        };
-
-
-      row.appendChild(open);
-
-      row.appendChild(del);
-
-      history.appendChild(row);
-
+  const result = await api(
+    '/auth/login',
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        email,
+        password
+      })
     }
   );
 
-}
-
-
-// ============================================
-// NEW CHAT
-// ============================================
-
-function newChat() {
-
-  currentConversation =
-    null;
-
-  document
-    .getElementById('chatTitle')
-    .textContent =
-      'Nueva conversación';
-
-  document
-    .getElementById('messages')
-    .innerHTML =
-
-    '<div class="welcome">' +
-
-      '<div>' +
-
-        '<h2>' +
-          '¿Qué quieres programar?' +
-        '</h2>' +
-
-        '<p>' +
-          'Pídeme crear, explicar, ' +
-          'corregir o mejorar código.' +
-        '</p>' +
-
-      '</div>' +
-
-    '</div>';
-
-  closeSidebar();
-
-}
-
-
-// ============================================
-// OPEN CHAT
-// ============================================
-
-async function openConversation(
-  id
-) {
-
-  const response =
-    await api(
-      '/api/conversations/' +
-      id
+  if (!result.data.success) {
+    showAuthMessage(
+      '❌ ' + result.data.error
     );
-
-  if (!response.ok) {
     return;
   }
 
-  const data =
-    await response.json();
+  token = result.data.token;
 
-  currentConversation =
-    data.conversation;
-
-  document
-    .getElementById('chatTitle')
-    .textContent =
-      data.conversation.title;
-
-  renderMessages(
-    data.messages
+  localStorage.setItem(
+    'mercury_token',
+    token
   );
 
-  closeSidebar();
+  showApp(
+    result.data.user
+  );
+}
+
+/* =========================================================
+   SHOW APP
+========================================================= */
+
+async function showApp(user) {
+
+  document.getElementById(
+    'authScreen'
+  ).style.display = 'none';
+
+  document.getElementById(
+    'app'
+  ).style.display = 'block';
+
+  document.getElementById(
+    'userEmail'
+  ).textContent = user.email;
+
+  await loadChats();
 
 }
 
+/* =========================================================
+   START
+========================================================= */
 
-// ============================================
-// RENDER MESSAGES
-// ============================================
+async function checkSession() {
 
-function renderMessages(
-  messages
-) {
+  if (!token) {
+    return;
+  }
+
+  const result =
+    await api('/auth/me');
+
+  if (
+    result.response.ok &&
+    result.data.success
+  ) {
+    showApp(result.data.user);
+  } else {
+    localStorage.removeItem(
+      'mercury_token'
+    );
+
+    token = '';
+  }
+}
+
+/* =========================================================
+   LOGOUT
+========================================================= */
+
+async function logout() {
+
+  await api(
+    '/auth/logout',
+    {
+      method: 'POST'
+    }
+  ).catch(() => {});
+
+  localStorage.removeItem(
+    'mercury_token'
+  );
+
+  token = '';
+  currentChatId = null;
+
+  location.reload();
+}
+
+/* =========================================================
+   CHATS
+========================================================= */
+
+async function loadChats() {
+
+  const result =
+    await api('/chats');
+
+  if (!result.data.success) {
+    return;
+  }
+
+  const list =
+    document.getElementById('chatList');
+
+  list.innerHTML = '';
+
+  result.data.chats.forEach(chat => {
+
+    const item =
+      document.createElement('div');
+
+    item.className = 'chatItem';
+
+    item.innerHTML = `
+      <div
+        class="chatTitle"
+        onclick="openChat(${chat.id})"
+      >
+        ${escapeHtml(chat.title)}
+      </div>
+
+      <button
+        class="deleteChat"
+        onclick="deleteChat(event, ${chat.id})"
+      >
+        🗑
+      </button>
+    `;
+
+    list.appendChild(item);
+  });
+}
+
+/* =========================================================
+   NEW CHAT
+========================================================= */
+
+async function newChat() {
+
+  const result =
+    await api(
+      '/chats',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          title: 'Nuevo chat'
+        })
+      }
+    );
+
+  if (!result.data.success) {
+    return;
+  }
+
+  currentChatId =
+    result.data.chat.id;
+
+  document.getElementById(
+    'topTitle'
+  ).textContent = 'Nuevo chat';
+
+  document.getElementById(
+    'messages'
+  ).innerHTML = `
+    <div class="empty">
+      <h1>¿Qué quieres programar?</h1>
+      <p>
+        Pídeme crear, explicar, corregir o mejorar código.
+      </p>
+    </div>
+  `;
+
+  await loadChats();
+
+  closeSidebar();
+}
+
+/* =========================================================
+   OPEN CHAT
+========================================================= */
+
+async function openChat(id) {
+
+  const result =
+    await api('/chats/' + id);
+
+  if (!result.data.success) {
+    return;
+  }
+
+  currentChatId = id;
+
+  document.getElementById(
+    'topTitle'
+  ).textContent =
+    result.data.chat.title;
 
   const container =
-    document.getElementById(
-      'messages'
-    );
+    document.getElementById('messages');
 
   container.innerHTML = '';
 
-  messages.forEach(
-    function(message) {
+  result.data.messages.forEach(message => {
 
-      addMessage(
-        message.role,
-        message.content,
-        message.language
-      );
+    addMessageToScreen(
+      message.role,
+      message.content,
+      message.language
+    );
 
-    }
-  );
+  });
 
   scrollMessages();
 
+  closeSidebar();
 }
 
+/* =========================================================
+   DELETE CHAT
+========================================================= */
 
-// ============================================
-// ADD MESSAGE
-// ============================================
+async function deleteChat(event, id) {
 
-function addMessage(
-  role,
-  content,
-  language
-) {
+  event.stopPropagation();
 
-  const container =
-    document.getElementById(
-      'messages'
-    );
+  const confirmed =
+    confirm('¿Borrar este chat?');
 
-  const row =
-    document.createElement(
-      'div'
-    );
-
-  row.className =
-    'messageRow ' +
-    (
-      role === 'user'
-        ? 'user'
-        : 'assistant'
-    );
-
-
-  const bubble =
-    document.createElement(
-      'div'
-    );
-
-  bubble.className =
-    'bubble';
-
-
-  if (
-    role === 'assistant' &&
-    language
-  ) {
-
-    const title =
-      document.createElement(
-        'div'
-      );
-
-    title.className =
-      'codeTitle';
-
-    title.textContent =
-      'Código generado · ' +
-      language;
-
-    bubble.appendChild(title);
-
-
-    const code =
-      document.createElement(
-        'pre'
-      );
-
-    code.className =
-      'code';
-
-    code.textContent =
-      content;
-
-    bubble.appendChild(code);
-
-
-    const buttons =
-      document.createElement(
-        'div'
-      );
-
-    buttons.className =
-      'codeButtons';
-
-
-    const copy =
-      document.createElement(
-        'button'
-      );
-
-    copy.className =
-      'smallButton';
-
-    copy.textContent =
-      '📋 Copiar';
-
-    copy.onclick =
-      async function() {
-
-        await navigator
-          .clipboard
-          .writeText(content);
-
-        copy.textContent =
-          '✅ Copiado';
-
-        setTimeout(
-          function() {
-
-            copy.textContent =
-              '📋 Copiar';
-
-          },
-          1500
-        );
-
-      };
-
-
-    const download =
-      document.createElement(
-        'button'
-      );
-
-    download.className =
-      'smallButton';
-
-    download.textContent =
-      '📥 Descargar';
-
-    download.onclick =
-      function() {
-
-        downloadCode(
-          content,
-          language
-        );
-
-      };
-
-
-    buttons.appendChild(copy);
-
-    buttons.appendChild(download);
-
-    bubble.appendChild(buttons);
-
-  } else {
-
-    bubble.textContent =
-      content;
-
+  if (!confirmed) {
+    return;
   }
 
+  const result =
+    await api(
+      '/chats/' + id,
+      {
+        method: 'DELETE'
+      }
+    );
 
-  row.appendChild(bubble);
+  if (!result.data.success) {
+    alert(result.data.error);
+    return;
+  }
 
-  container.appendChild(row);
+  if (currentChatId === id) {
+    currentChatId = null;
 
+    document.getElementById(
+      'messages'
+    ).innerHTML = `
+      <div class="empty">
+        <h1>¿Qué quieres programar?</h1>
+        <p>
+          Pídeme crear, explicar, corregir o mejorar código.
+        </p>
+      </div>
+    `;
+
+    document.getElementById(
+      'topTitle'
+    ).textContent = 'Nuevo chat';
+  }
+
+  await loadChats();
 }
 
-
-// ============================================
-// SEND
-// ============================================
+/* =========================================================
+   SEND
+========================================================= */
 
 async function sendMessage() {
 
-  const input =
-    document.getElementById(
-      'prompt'
-    );
+  const promptInput =
+    document.getElementById('prompt');
 
   const prompt =
-    input.value.trim();
+    promptInput.value.trim();
 
   if (!prompt) {
     return;
   }
 
-  input.value = '';
+  const button =
+    document.getElementById('sendButton');
 
-  addMessage(
+  button.disabled = true;
+  button.textContent = '...';
+
+  addMessageToScreen(
     'user',
     prompt
   );
 
-  scrollMessages();
+  promptInput.value = '';
 
+  const result =
+    await api(
+      '/generate',
+      {
+        method: 'POST',
+        body: JSON.stringify({
 
-  const language =
+          prompt,
+
+          language:
+            document.getElementById(
+              'language'
+            ).value,
+
+          complexity:
+            document.getElementById(
+              'complexity'
+            ).value,
+
+          chatId:
+            currentChatId
+
+        })
+      }
+    );
+
+  if (!result.data.success) {
+
+    addMessageToScreen(
+      'assistant',
+      '❌ ' + result.data.error
+    );
+
+  } else {
+
+    currentChatId =
+      result.data.chatId;
+
+    addMessageToScreen(
+      'assistant',
+      result.data.code,
+      result.data.language
+    );
+
     document.getElementById(
-      'language'
-    ).value;
+      'topTitle'
+    ).textContent =
+      prompt.slice(0, 45);
 
+    await loadChats();
+  }
 
-  try {
+  button.disabled = false;
+  button.textContent = '➤';
 
-    const response =
-      await api(
-        '/api/chat',
-        {
-          method: 'POST',
+  scrollMessages();
+}
 
-          body:
-            JSON.stringify({
+/* =========================================================
+   ADD MESSAGE
+========================================================= */
 
-              prompt,
+function addMessageToScreen(
+  role,
+  content,
+  language = ''
+) {
 
-              language,
+  const container =
+    document.getElementById('messages');
 
-              conversationId:
-                currentConversation
-                  ? currentConversation.id
-                  : null
+  const empty =
+    container.querySelector('.empty');
 
-            })
+  if (empty) {
+    empty.remove();
+  }
 
-        }
-      );
+  const message =
+    document.createElement('div');
 
+  message.className =
+    'message';
 
-    const data =
-      await respon
+  const roleText =
+    role === 'user'
+      ? 'Tú'
+      : 'Mercury';
+
+  if (
+    role ==
