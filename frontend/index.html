@@ -1,685 +1,1370 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Mercury's AI-Generator</title>
+<meta charset="UTF-8">
+<meta name="viewport"
+      content="width=device-width,initial-scale=1,maximum-scale=1">
 
-  <style>
-    * {
-      box-sizing: border-box;
-    }
+<title>Mercury AI</title>
 
-    body {
-      margin: 0;
-      min-height: 100vh;
-      background: #090a0f;
-      color: #f4f4f5;
-      font-family: Georgia, "Times New Roman", serif;
-    }
+<style>
 
-    button,
-    input,
-    textarea,
-    select {
-      font: inherit;
-    }
+*{
+  box-sizing:border-box;
+}
 
-    .page {
-      min-height: 100vh;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      padding: 24px 14px;
-    }
+html,
+body{
+  margin:0;
+  padding:0;
+  width:100%;
+  height:100%;
+  background:#08090d;
+  color:#f5f5f7;
+  font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,
+  "Segoe UI",sans-serif;
+}
 
-    .card {
-      width: 100%;
-      max-width: 620px;
-      background: #15151d;
-      border: 1px solid #30303b;
-      border-radius: 30px;
-      padding: 38px;
-      box-shadow: 0 20px 70px rgba(0,0,0,.45);
-    }
+button,
+textarea,
+select{
+  font:inherit;
+}
 
-    h1 {
-      margin: 0;
-      text-align: center;
-      font-size: clamp(34px, 8vw, 58px);
-      line-height: 1.05;
-    }
+button{
+  cursor:pointer;
+}
 
-    .subtitle {
-      text-align: center;
-      color: #a6a6b3;
-      font-size: 20px;
-      margin: 22px 0 35px;
-    }
+/* =========================================================
+   APP
+========================================================= */
 
-    input,
-    textarea,
-    select {
-      width: 100%;
-      border: 1px solid #383844;
-      background: #0e0e14;
-      color: white;
-      border-radius: 18px;
-      padding: 18px;
-      outline: none;
-      margin-bottom: 14px;
-    }
+.app{
+  width:100%;
+  height:100vh;
+  display:flex;
+  overflow:hidden;
+}
 
-    input:focus,
-    textarea:focus,
-    select:focus {
-      border-color: #7060ff;
-    }
+/* =========================================================
+   SIDEBAR
+========================================================= */
 
-    textarea {
-      min-height: 130px;
-      resize: vertical;
-    }
+.sidebar{
+  width:300px;
+  min-width:300px;
+  height:100%;
+  background:#101116;
+  border-right:1px solid #272933;
+  display:flex;
+  flex-direction:column;
+  padding:18px;
+  z-index:20;
+}
 
-    button {
-      width: 100%;
-      border: 0;
-      border-radius: 18px;
-      padding: 17px;
-      margin-top: 8px;
-      cursor: pointer;
-      font-weight: bold;
-      color: white;
-      background: #6857f5;
-      transition: .15s;
-    }
+.logo{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  font-size:24px;
+  font-weight:800;
+  margin-bottom:20px;
+}
 
-    button:hover {
-      filter: brightness(1.1);
-    }
+.logoIcon{
+  width:42px;
+  height:42px;
+  border-radius:13px;
+  background:linear-gradient(
+    135deg,
+    #735cff,
+    #9a7cff
+  );
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:22px;
+}
 
-    button:active {
-      transform: scale(.98);
-    }
+.newChat{
+  width:100%;
+  border:0;
+  border-radius:15px;
+  padding:15px;
+  background:#735cff;
+  color:white;
+  font-weight:800;
+  font-size:16px;
+  margin-bottom:20px;
+  transition:.2s;
+}
 
-    .secondary {
-      background: #292934;
-    }
+.newChat:hover{
+  transform:translateY(-1px);
+  filter:brightness(1.1);
+}
 
-    .message {
-      min-height: 50px;
-      margin-top: 22px;
-      padding: 14px;
-      border-radius: 15px;
-      background: #0d0d13;
-      color: #aaaab6;
-      text-align: center;
-    }
+.historyTitle{
+  color:#858894;
+  font-size:12px;
+  font-weight:800;
+  text-transform:uppercase;
+  letter-spacing:1px;
+  margin:5px 5px 10px;
+}
 
-    .success {
-      color: #86efac;
-    }
+.chatList{
+  flex:1;
+  overflow-y:auto;
+  display:flex;
+  flex-direction:column;
+  gap:5px;
+}
 
-    .error {
-      color: #ff7777;
-    }
+.chatItem{
+  border:0;
+  background:transparent;
+  color:#dddde5;
+  width:100%;
+  text-align:left;
+  padding:12px;
+  border-radius:12px;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  transition:.15s;
+}
 
-    .hidden {
-      display: none !important;
-    }
+.chatItem:hover{
+  background:#1c1e26;
+}
 
-    .topbar {
-      display: flex;
-      gap: 10px;
-      align-items: center;
-      margin-bottom: 25px;
-    }
+.chatItem.active{
+  background:#252431;
+}
 
-    .topbar button {
-      width: auto;
-      margin: 0;
-      padding: 10px 15px;
-    }
+.chatIcon{
+  font-size:17px;
+  flex-shrink:0;
+}
 
-    .topbar .logout {
-      margin-left: auto;
-    }
+.chatTitle{
+  flex:1;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  font-size:14px;
+}
 
-    .code-box {
-      position: relative;
-      margin-top: 18px;
-    }
+.deleteChat{
+  opacity:0;
+  border:0;
+  background:transparent;
+  color:#ff6b6b;
+  padding:5px;
+}
 
-    pre {
-      max-height: 420px;
-      overflow: auto;
-      background: #09090d;
-      border: 1px solid #30303a;
-      border-radius: 16px;
-      padding: 18px;
-      white-space: pre-wrap;
-      word-break: break-word;
-      font-family: monospace;
-      font-size: 14px;
-    }
+.chatItem:hover .deleteChat{
+  opacity:1;
+}
 
-    .copy {
-      margin-top: 10px;
-      background: #292934;
-    }
+.userBox{
+  border-top:1px solid #292b34;
+  padding-top:15px;
+  margin-top:12px;
+}
 
-    .small {
-      color: #8d8d9a;
-      font-size: 14px;
-      margin-top: 10px;
-    }
+.userEmail{
+  color:#c8c8d0;
+  font-size:13px;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  margin-bottom:10px;
+}
 
-    @media (max-width: 600px) {
-      .page {
-        padding: 12px;
-        align-items: flex-start;
-      }
+.logout{
+  width:100%;
+  border:0;
+  border-radius:12px;
+  padding:11px;
+  background:#202129;
+  color:#ddd;
+}
 
-      .card {
-        margin-top: 25px;
-        padding: 24px 18px;
-        border-radius: 24px;
-      }
+/* =========================================================
+   MAIN
+========================================================= */
 
-      h1 {
-        font-size: 38px;
-      }
+.main{
+  flex:1;
+  height:100%;
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+  background:
+    radial-gradient(
+      circle at 50% -10%,
+      rgba(115,92,255,.12),
+      transparent 40%
+    ),
+    #08090d;
+}
 
-      .subtitle {
-        font-size: 17px;
-      }
-    }
-  </style>
+/* =========================================================
+   TOPBAR
+========================================================= */
+
+.topbar{
+  height:72px;
+  min-height:72px;
+  border-bottom:1px solid #24262e;
+  display:flex;
+  align-items:center;
+  padding:0 28px;
+  gap:15px;
+}
+
+.menuButton{
+  display:none;
+  border:0;
+  background:#1b1d24;
+  color:white;
+  border-radius:12px;
+  width:44px;
+  height:44px;
+  font-size:22px;
+}
+
+.topTitle{
+  font-size:18px;
+  font-weight:800;
+}
+
+.topSub{
+  color:#777a86;
+  font-size:13px;
+}
+
+/* =========================================================
+   CHAT
+========================================================= */
+
+.chatArea{
+  flex:1;
+  overflow-y:auto;
+  padding:35px 25px;
+}
+
+.messages{
+  width:100%;
+  max-width:1050px;
+  margin:0 auto;
+  display:flex;
+  flex-direction:column;
+  gap:25px;
+}
+
+.welcome{
+  min-height:55vh;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  flex-direction:column;
+  text-align:center;
+  padding:40px;
+}
+
+.welcomeLogo{
+  width:82px;
+  height:82px;
+  border-radius:25px;
+  background:linear-gradient(
+    135deg,
+    #735cff,
+    #a383ff
+  );
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:42px;
+  box-shadow:0 20px 70px rgba(115,92,255,.25);
+  margin-bottom:25px;
+}
+
+.welcome h1{
+  margin:0;
+  font-size:42px;
+  letter-spacing:-1px;
+}
+
+.welcome p{
+  color:#858894;
+  font-size:18px;
+  margin-top:12px;
+}
+
+/* =========================================================
+   MESSAGE
+========================================================= */
+
+.message{
+  display:flex;
+  gap:14px;
+  width:100%;
+}
+
+.avatar{
+  width:40px;
+  height:40px;
+  min-width:40px;
+  border-radius:13px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-weight:800;
+}
+
+.message.user .avatar{
+  background:#272a33;
+}
+
+.message.assistant .avatar{
+  background:linear-gradient(
+    135deg,
+    #735cff,
+    #9a7cff
+  );
+}
+
+.messageContent{
+  min-width:0;
+  flex:1;
+}
+
+.messageName{
+  font-size:13px;
+  color:#8e919c;
+  margin-bottom:7px;
+  font-weight:700;
+}
+
+.messageText{
+  color:#eeeef2;
+  font-size:16px;
+  line-height:1.65;
+  white-space:pre-wrap;
+  word-break:break-word;
+}
+
+.codeBlock{
+  margin-top:12px;
+  background:#0b0c10;
+  border:1px solid #292c36;
+  border-radius:14px;
+  overflow:hidden;
+}
+
+.codeHeader{
+  height:42px;
+  padding:0 12px;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  background:#15171d;
+  color:#8f929e;
+  font-size:12px;
+}
+
+.copyBtn{
+  border:0;
+  background:#242631;
+  color:#ddd;
+  border-radius:8px;
+  padding:6px 10px;
+  font-size:12px;
+}
+
+.codeBlock pre{
+  margin:0;
+  padding:17px;
+  overflow-x:auto;
+  color:#e9e9ee;
+  font-size:13px;
+  line-height:1.6;
+  font-family:
+    "SFMono-Regular",
+    Consolas,
+    "Liberation Mono",
+    monospace;
+}
+
+/* =========================================================
+   COMPOSER
+========================================================= */
+
+.composerWrap{
+  padding:15px 25px 22px;
+}
+
+.composer{
+  width:100%;
+  max-width:1050px;
+  margin:0 auto;
+  background:#111219;
+  border:1px solid #2a2c35;
+  border-radius:22px;
+  padding:14px;
+  box-shadow:0 15px 60px rgba(0,0,0,.3);
+}
+
+.prompt{
+  width:100%;
+  min-height:90px;
+  max-height:240px;
+  resize:vertical;
+  background:transparent;
+  border:0;
+  outline:0;
+  color:white;
+  padding:10px 12px;
+  font-size:16px;
+  line-height:1.5;
+}
+
+.prompt::placeholder{
+  color:#666a75;
+}
+
+.controls{
+  display:flex;
+  gap:10px;
+  align-items:center;
+  margin-top:8px;
+}
+
+.language{
+  flex:1;
+  min-width:0;
+  background:#1c1e26;
+  border:1px solid #30323d;
+  color:#eee;
+  border-radius:12px;
+  padding:11px 12px;
+  outline:none;
+}
+
+.generate{
+  border:0;
+  background:#735cff;
+  color:white;
+  border-radius:12px;
+  padding:12px 22px;
+  font-weight:800;
+  white-space:nowrap;
+}
+
+.generate:disabled{
+  opacity:.5;
+  cursor:not-allowed;
+}
+
+.status{
+  max-width:1050px;
+  margin:8px auto 0;
+  color:#ff7474;
+  font-size:14px;
+  min-height:20px;
+}
+
+/* =========================================================
+   OVERLAY
+========================================================= */
+
+.overlay{
+  display:none;
+}
+
+/* =========================================================
+   MOBILE
+========================================================= */
+
+@media(max-width:800px){
+
+  .sidebar{
+    position:fixed;
+    left:-310px;
+    top:0;
+    transition:.25s;
+    box-shadow:20px 0 70px rgba(0,0,0,.5);
+  }
+
+  .sidebar.open{
+    left:0;
+  }
+
+  .menuButton{
+    display:block;
+  }
+
+  .topbar{
+    padding:0 14px;
+  }
+
+  .topSub{
+    display:none;
+  }
+
+  .chatArea{
+    padding:20px 13px;
+  }
+
+  .messages{
+    gap:20px;
+  }
+
+  .welcome{
+    min-height:50vh;
+    padding:25px;
+  }
+
+  .welcome h1{
+    font-size:32px;
+  }
+
+  .welcome p{
+    font-size:16px;
+  }
+
+  .message{
+    gap:10px;
+  }
+
+  .avatar{
+    width:34px;
+    height:34px;
+    min-width:34px;
+    border-radius:10px;
+  }
+
+  .messageText{
+    font-size:15px;
+  }
+
+  .composerWrap{
+    padding:8px 10px 12px;
+  }
+
+  .composer{
+    border-radius:18px;
+    padding:10px;
+  }
+
+  .prompt{
+    min-height:80px;
+    font-size:15px;
+  }
+
+  .controls{
+    flex-direction:row;
+  }
+
+  .language{
+    min-width:0;
+  }
+
+  .generate{
+    padding:11px 14px;
+  }
+
+  .overlay{
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,.55);
+    z-index:10;
+  }
+
+  .overlay.show{
+    display:block;
+  }
+}
+
+</style>
 </head>
 
 <body>
 
-<div class="page">
+<div class="app">
 
-  <!-- LOGIN / REGISTER -->
-  <section id="authCard" class="card">
+  <!-- SIDEBAR -->
 
-    <h1>Mercury's AI-Generator</h1>
+  <aside class="sidebar" id="sidebar">
 
-    <div class="subtitle">
-      Crea tu cuenta o inicia sesión
+    <div class="logo">
+      <div class="logoIcon">M</div>
+      <span>Mercury AI</span>
     </div>
 
-    <input
-      id="email"
-      type="email"
-      autocomplete="email"
-      placeholder="Tu correo electrónico"
-    >
-
-    <input
-      id="password"
-      type="password"
-      autocomplete="current-password"
-      placeholder="Tu contraseña"
-    >
-
-    <button id="registerBtn" type="button">
-      Crear cuenta
+    <button
+      class="newChat"
+      onclick="newChat()">
+      ＋ Nuevo chat
     </button>
 
-    <button id="loginBtn" type="button" class="secondary">
-      Iniciar sesión
-    </button>
-
-    <div id="authMessage" class="message">
-      Introduce tus datos.
+    <div class="historyTitle">
+      Historial
     </div>
 
-  </section>
+    <div
+      class="chatList"
+      id="chatList">
+    </div>
 
+    <div class="userBox">
 
-  <!-- APP -->
-  <section id="appCard" class="card hidden">
-
-    <div class="topbar">
-      <strong>Mercury AI</strong>
+      <div
+        class="userEmail"
+        id="userEmail">
+        Cargando...
+      </div>
 
       <button
-        id="logoutBtn"
-        type="button"
-        class="secondary logout"
-      >
+        class="logout"
+        onclick="logout()">
         Cerrar sesión
       </button>
+
     </div>
 
-    <h2>Generador</h2>
+  </aside>
 
-    <p class="small">
-      Describe el script que quieres crear.
-    </p>
+  <div
+    class="overlay"
+    id="overlay"
+    onclick="closeSidebar()">
+  </div>
 
-    <textarea
-      id="prompt"
-      placeholder="Ejemplo: crea una API REST en JavaScript..."
-    ></textarea>
+  <!-- MAIN -->
 
-    <select id="language">
-      <option value="javascript">JavaScript</option>
-      <option value="python">Python</option>
-      <option value="bash">Bash</option>
-      <option value="c">C</option>
-      <option value="cpp">C++</option>
-      <option value="java">Java</option>
-      <option value="go">Go</option>
-      <option value="rust">Rust</option>
-      <option value="php">PHP</option>
-      <option value="ruby">Ruby</option>
-      <option value="powershell">PowerShell</option>
-      <option value="sql">SQL</option>
-    </select>
+  <main class="main">
 
-    <button id="generateBtn" type="button">
-      Generar código
-    </button>
-
-    <div id="generateMessage" class="message">
-      Listo.
-    </div>
-
-    <div id="codeBox" class="code-box hidden">
-
-      <pre id="codeOutput"></pre>
+    <header class="topbar">
 
       <button
-        id="copyBtn"
-        type="button"
-        class="copy"
-      >
-        📋 Copiar código
+        class="menuButton"
+        onclick="openSidebar()">
+        ☰
       </button>
+
+      <div>
+        <div class="topTitle">
+          Generador
+        </div>
+
+        <div class="topSub">
+          Mercury's AI Code Generator
+        </div>
+      </div>
+
+    </header>
+
+    <section
+      class="chatArea"
+      id="chatArea">
+
+      <div
+        class="messages"
+        id="messages">
+
+        <div
+          class="welcome"
+          id="welcome">
+
+          <div class="welcomeLogo">
+            M
+          </div>
+
+          <h1>
+            ¿Qué quieres crear?
+          </h1>
+
+          <p>
+            Describe tu script y Mercury AI lo generará.
+          </p>
+
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- COMPOSER -->
+
+    <div class="composerWrap">
+
+      <div class="composer">
+
+        <textarea
+          id="prompt"
+          class="prompt"
+          placeholder="Describe el código que quieres crear..."
+          onkeydown="handleEnter(event)"
+        ></textarea>
+
+        <div class="controls">
+
+          <select
+            id="language"
+            class="language">
+          </select>
+
+          <button
+            id="generateBtn"
+            class="generate"
+            onclick="generateCode()">
+            Generar
+          </button>
+
+        </div>
+
+      </div>
+
+      <div
+        class="status"
+        id="status">
+      </div>
 
     </div>
 
-  </section>
+  </main>
 
 </div>
 
-
 <script>
-  const API = window.location.origin;
 
-  const authCard = document.getElementById("authCard");
-  const appCard = document.getElementById("appCard");
+const API = '';
 
-  const emailInput = document.getElementById("email");
-  const passwordInput = document.getElementById("password");
+let token =
+  localStorage.getItem('mercury_token') || '';
 
-  const registerBtn = document.getElementById("registerBtn");
-  const loginBtn = document.getElementById("loginBtn");
-  const logoutBtn = document.getElementById("logoutBtn");
+let currentChatId = null;
 
-  const authMessage = document.getElementById("authMessage");
+const messagesEl =
+  document.getElementById('messages');
 
-  const promptInput = document.getElementById("prompt");
-  const languageInput = document.getElementById("language");
-  const generateBtn = document.getElementById("generateBtn");
+const chatListEl =
+  document.getElementById('chatList');
 
-  const generateMessage =
-    document.getElementById("generateMessage");
+const statusEl =
+  document.getElementById('status');
 
-  const codeBox =
-    document.getElementById("codeBox");
+const promptEl =
+  document.getElementById('prompt');
 
-  const codeOutput =
-    document.getElementById("codeOutput");
+const languageEl =
+  document.getElementById('language');
 
-  const copyBtn =
-    document.getElementById("copyBtn");
+const generateBtn =
+  document.getElementById('generateBtn');
 
 
-  // =========================================================
-  // MENSAJES
-  // =========================================================
+// ==========================================================
+// API
+// ==========================================================
 
-  function showAuthMessage(text, type = "") {
-    authMessage.textContent = text;
-    authMessage.className = "message " + type;
+async function api(
+  url,
+  options = {}
+){
+
+  options.headers =
+    options.headers || {};
+
+  options.headers['Content-Type'] =
+    'application/json';
+
+  if(token){
+    options.headers.Authorization =
+      'Bearer ' + token;
   }
 
-  function showGenerateMessage(text, type = "") {
-    generateMessage.textContent = text;
-    generateMessage.className = "message " + type;
-  }
-
-
-  // =========================================================
-  // PETICIÓN API
-  // =========================================================
-
-  async function request(path, options = {}) {
-
-    const response = await fetch(API + path, {
-      ...options,
-      headers: {
-        "Content-Type": "application/json",
-        ...(options.headers || {})
-      }
-    });
-
-    let data;
-
-    try {
-      data = await response.json();
-    } catch {
-      data = {};
-    }
-
-    if (!response.ok) {
-      throw new Error(
-        data.error ||
-        data.message ||
-        "Error del servidor (" + response.status + ")"
-      );
-    }
-
-    return data;
-  }
-
-
-  // =========================================================
-  // REGISTRO
-  // =========================================================
-
-  registerBtn.addEventListener("click", async () => {
-
-    const email = emailInput.value.trim();
-    const password = passwordInput.value;
-
-    if (!email || !password) {
-      showAuthMessage(
-        "❌ Introduce correo y contraseña.",
-        "error"
-      );
-      return;
-    }
-
-    if (password.length < 6) {
-      showAuthMessage(
-        "❌ La contraseña debe tener al menos 6 caracteres.",
-        "error"
-      );
-      return;
-    }
-
-    registerBtn.disabled = true;
-    loginBtn.disabled = true;
-
-    showAuthMessage("Creando cuenta...");
-
-    try {
-
-      const data = await request("/auth/register", {
-        method: "POST",
-        body: JSON.stringify({
-          email,
-          password
-        })
-      });
-
-      if (data.token) {
-        localStorage.setItem(
-          "mercury_token",
-          data.token
-        );
-      }
-
-      showAuthMessage(
-        "✅ Cuenta creada correctamente.",
-        "success"
-      );
-
-      setTimeout(() => {
-        showApp();
-      }, 500);
-
-    } catch (error) {
-
-      showAuthMessage(
-        "❌ " + error.message,
-        "error"
-      );
-
-    } finally {
-      registerBtn.disabled = false;
-      loginBtn.disabled = false;
-    }
-
-  });
-
-
-  // =========================================================
-  // LOGIN
-  // =========================================================
-
-  loginBtn.addEventListener("click", async () => {
-
-    const email = emailInput.value.trim();
-    const password = passwordInput.value;
-
-    if (!email || !password) {
-      showAuthMessage(
-        "❌ Introduce correo y contraseña.",
-        "error"
-      );
-      return;
-    }
-
-    loginBtn.disabled = true;
-    registerBtn.disabled = true;
-
-    showAuthMessage("Iniciando sesión...");
-
-    try {
-
-      const data = await request("/auth/login", {
-        method: "POST",
-        body: JSON.stringify({
-          email,
-          password
-        })
-      });
-
-      if (data.token) {
-        localStorage.setItem(
-          "mercury_token",
-          data.token
-        );
-      }
-
-      showAuthMessage(
-        "✅ Sesión iniciada correctamente.",
-        "success"
-      );
-
-      setTimeout(() => {
-        showApp();
-      }, 300);
-
-    } catch (error) {
-
-      showAuthMessage(
-        "❌ " + error.message,
-        "error"
-      );
-
-    } finally {
-      loginBtn.disabled = false;
-      registerBtn.disabled = false;
-    }
-
-  });
-
-
-  // =========================================================
-  // MOSTRAR APP
-  // =========================================================
-
-  function showApp() {
-
-    authCard.classList.add("hidden");
-    appCard.classList.remove("hidden");
-
-    window.scrollTo({
-      top: 0,
-      behavior: "smooth"
-    });
-  }
-
-
-  // =========================================================
-  // LOGOUT
-  // =========================================================
-
-  logoutBtn.addEventListener("click", () => {
-
-    localStorage.removeItem("mercury_token");
-
-    appCard.classList.add("hidden");
-    authCard.classList.remove("hidden");
-
-    emailInput.value = "";
-    passwordInput.value = "";
-
-    showAuthMessage("Sesión cerrada.");
-  });
-
-
-  // =========================================================
-  // GENERAR
-  // =========================================================
-
-  generateBtn.addEventListener("click", async () => {
-
-    const prompt = promptInput.value.trim();
-    const language = languageInput.value;
-
-    if (!prompt) {
-      showGenerateMessage(
-        "❌ Escribe lo que quieres generar.",
-        "error"
-      );
-      return;
-    }
-
-    generateBtn.disabled = true;
-
-    showGenerateMessage(
-      "⚙️ Generando código..."
+  const response =
+    await fetch(
+      API + url,
+      options
     );
 
-    codeBox.classList.add("hidden");
+  let data;
 
-    try {
-
-      const token =
-        localStorage.getItem("mercury_token");
-
-      const data = await request("/generate", {
-        method: "POST",
-
-        headers: token
-          ? {
-              Authorization:
-                "Bearer " + token
-            }
-          : {},
-
-        body: JSON.stringify({
-          prompt,
-          language
-        })
-      });
-
-      if (!data.code) {
-        throw new Error(
-          "El servidor no devolvió código."
-        );
-      }
-
-      codeOutput.textContent = data.code;
-
-      codeBox.classList.remove("hidden");
-
-      showGenerateMessage(
-        "✅ Código generado.",
-        "success"
-      );
-
-      // Lleva directamente al resultado
-      setTimeout(() => {
-        codeBox.scrollIntoView({
-          behavior: "smooth",
-          block: "start"
-        });
-      }, 100);
-
-    } catch (error) {
-
-      showGenerateMessage(
-        "❌ " + error.message,
-        "error"
-      );
-
-    } finally {
-      generateBtn.disabled = false;
-    }
-
-  });
-
-
-  // =========================================================
-  // COPIAR
-  // =========================================================
-
-  copyBtn.addEventListener("click", async () => {
-
-    const code = codeOutput.textContent;
-
-    if (!code) return;
-
-    try {
-
-      await navigator.clipboard.writeText(code);
-
-      copyBtn.textContent = "✅ Copiado";
-
-      setTimeout(() => {
-        copyBtn.textContent = "📋 Copiar código";
-      }, 1500);
-
-    } catch {
-
-      showGenerateMessage(
-        "❌ No se pudo copiar el código.",
-        "error"
-      );
-
-    }
-
-  });
-
-
-  // =========================================================
-  // SESIÓN GUARDADA
-  // =========================================================
-
-  if (localStorage.getItem("mercury_token")) {
-    showApp();
+  try{
+    data =
+      await response.json();
+  }catch{
+    data = {};
   }
 
-</script>
+  if(
+    response.status === 401
+  ){
 
-</body>
-</html>
+    localStorage.removeItem(
+      'mercury_token'
+    );
+
+    token = '';
+
+    location.reload();
+  }
+
+  if(!response.ok){
+    throw new Error(
+      data.error ||
+      'Error del servidor.'
+    );
+  }
+
+  return data;
+}
+
+
+// ==========================================================
+// INIT
+// ==========================================================
+
+async function init(){
+
+  if(!token){
+
+    location.href = '/';
+
+    return;
+  }
+
+  try{
+
+    const me =
+      await api('/auth/me');
+
+    document.getElementById(
+      'userEmail'
+    ).textContent =
+      me.user.email;
+
+    await loadLanguages();
+
+    await loadChats();
+
+  }catch(error){
+
+    showError(
+      error.message
+    );
+  }
+}
+
+
+// ==========================================================
+// LANGUAGES
+// ==========================================================
+
+async function loadLanguages(){
+
+  try{
+
+    const data =
+      await api('/languages');
+
+    languageEl.innerHTML = '';
+
+    data.languages.forEach(
+      language => {
+
+        const option =
+          document.createElement(
+            'option'
+          );
+
+        option.value =
+          language.name;
+
+        option.textContent =
+          language.info?.name ||
+          language.name;
+
+        languageEl.appendChild(
+          option
+        );
+
+      }
+    );
+
+  }catch(error){
+
+    languageEl.innerHTML = `
+      <option value="javascript">
+        JavaScript
+      </option>
+    `;
+
+  }
+}
+
+
+// ==========================================================
+// CHATS
+// ==========================================================
+
+async function loadChats(){
+
+  const data =
+    await api('/chats');
+
+  chatListEl.innerHTML = '';
+
+  if(!data.chats.length){
+
+    chatListEl.innerHTML = `
+      <div style="
+        color:#666975;
+        font-size:13px;
+        padding:12px;
+      ">
+        Todavía no tienes chats.
+      </div>
+    `;
+
+    return;
+  }
+
+  data.chats.forEach(
+    chat => {
+
+      const item =
+        document.createElement(
+          'div'
+        );
+
+      item.className =
+        'chatItem' +
+        (
+          chat.id === currentChatId
+            ? ' active'
+            : ''
+        );
+
+      item.innerHTML = `
+        <span class="chatIcon">
+          💬
+        </span>
+
+        <span class="chatTitle">
+          ${escapeHtml(chat.title)}
+        </span>
+
+        <button
+          class="deleteChat"
+          onclick="
+            event.stopPropagation();
+            deleteChat(${chat.id});
+          ">
+          🗑️
+        </button>
+      `;
+
+      item.onclick = () =>
+        openChat(chat.id);
+
+      chatListEl.appendChild(
+        item
+      );
+
+    }
+  );
+}
+
+
+// ==========================================================
+// OPEN CHAT
+// ==========================================================
+
+async function openChat(id){
+
+  try{
+
+    const data =
+      await api(
+        '/chats/' + id
+      );
+
+    currentChatId = id;
+
+    messagesEl.innerHTML = '';
+
+    data.messages.forEach(
+      message => {
+
+        addMessage(
+          message.role,
+          message.content,
+          message.language
+        );
+
+      }
+    );
+
+    if(!data.messages.length){
+      showWelcome();
+    }
+
+    await loadChats();
+
+    closeSidebar();
+
+    scrollBottom();
+
+  }catch(error){
+
+    showError(
+      error.message
+    );
+  }
+}
+
+
+// ==========================================================
+// NEW CHAT
+// ==========================================================
+
+async function newChat(){
+
+  try{
+
+    const data =
+      await api(
+        '/chats',
+        {
+          method:'POST',
+
+          body:JSON.stringify({
+            title:'Nuevo chat'
+          })
+        }
+      );
+
+    currentChatId =
+      data.chat.id;
+
+    messagesEl.innerHTML = '';
+
+    showWelcome();
+
+    promptEl.value = '';
+
+    await loadChats();
+
+    closeSidebar();
+
+    promptEl.focus();
+
+  }catch(error){
+
+    showError(
+      error.message
+    );
+  }
+}
+
+
+// ==========================================================
+// DELETE CHAT
+// ==========================================================
+
+async function deleteChat(id){
+
+  if(
+    !confirm(
+      '¿Borrar este chat?'
+    )
+  ){
+    return;
+  }
+
+  try{
+
+    await api(
+      '/chats/' + id,
+      {
+        method:'DELETE'
+      }
+    );
+
+    if(
+      currentChatId === id
+    ){
+
+      currentChatId = null;
+
+      messagesEl.innerHTML = '';
+
+      showWelcome();
+    }
+
+    await loadChats();
+
+  }catch(error){
+
+    showError(
+      error.message
+    );
+  }
+}
+
+
+// ==========================================================
+// GENERATE
+// ==========================================================
+
+async function generateCode(){
+
+  const prompt =
+    promptEl.value.trim();
+
+  if(!prompt){
+
+    showError(
+      'Escribe qué quieres crear.'
+    );
+
+    promptEl.focus();
+
+    return;
+  }
+
+  generateBtn.disabled = true;
+
+  statusEl.textContent =
+    'Mercury está generando...';
+
+  addMessage(
+    'user',
+    prompt
+  );
+
+  promptEl.value = '';
+
+  try{
+
+    const data =
+      await api(
+        '/generate',
+        {
+          method:'POST',
+
+          body:JSON.stringify({
+            prompt,
+            language:
+              languageEl.value,
+            chatId:
+              currentChatId
+          })
+        }
+      );
+
+    currentChatId =
+      data.chatId;
+
+    addMessage(
+      'assistant',
+      data.code,
+      data.language
+    );
+
+    statusEl.textContent = '';
+
+    await loadChats();
+
+    scrollBottom();
+
+  }catch(error){
+
+    statusEl.textContent = '';
+
+    showError(
+      error.message
+    );
+
+  }finally{
+
+    generateBtn.disabled = false;
+
+  }
+}
+
+
+// ==========================================================
+// MESSAGE
+// ==========================================================
+
+function addMessage(
+  role,
+  content,
+  language
+){
+
+  const welcome =
+    document.getElementById(
+      'welcome'
+    );
+
+  if(welcome){
+    welcome.remove();
+  }
+
+  const wrapper =
+    document.createElement(
+      'div'
+    );
+
+  wrapper.className =
+    'message ' +
+    (
+      role === 'user'
+        ? 'user'
+        : 'assistant'
+    );
+
+  const avatar =
+    role === 'user'
+      ? 'U'
+      : 'M';
+
+  const name =
+    role === 'user'
+      ? 'Tú'
+      : 'Mercury AI';
+
+  if(
+    role === 'assistant'
+  ){
+
+    wrapper.innerHTML = `
+      <div class="avatar">
+        ${avatar}
+      </div>
+
+      <div class="messageContent">
+
+        <div class="messageName">
+          ${name}
+        </div>
+
+        <div class="codeBlock">
+
+          <div class="codeHeader">
+
+            <span>
+              ${escapeHtml(
+                language ||
+                'code'
+              )}
+            </span>
+
+            <button
+              class="copyBtn"
+              onclick="copyCode(this)">
+              Copiar
+            </button>
+
+          </div>
+
+          <pre><code>${escapeHtml(
+            content
+          )}</code></pre>
+
+        </div>
+
+      </div>
+    `;
+
+  }else{
+
+    wrapper.innerHTML = `
+      <div class="avatar">
+        ${avatar}
+      </div>
+
+      <div class="messageContent">
+
+        <div class="messageName">
+          ${name}
+        </div>
+
+        <div class="messageText">
+          ${escapeHtml(content)}
+        </div>
+
+      </div>
+    `;
+  }
+
+  messagesEl.appendChild(
+    wrapper
+  );
+
+  scrollBottom();
+}
+
+
+// ==========================================================
+// COPY
+// ==========================================================
+
+async function copyCode(button){
+
+  const code =
+    button
+      .closest('.codeBlock')
+      .querySelector('code')
+      .textContent;
+
+  try{
+
+    await navigator.clipboard.writeText(
+      code
+    );
+
+    const old =
+      button.textContent;
+
+    button.textContent =
+      'Copiado ✓';
+
+    setTimeout(
+      () => {
+        button.textContent =
+          old;
+      },
+      1500
+    );
+
+  }catch{
+
+    showError(
+      'No se pudo copiar el código.'
+    );
+  }
+}
+
+
+// ==========================================================
+// ENTER
+// ==========================================================
+
+function handleEnter(event){
+
+  if(
+    event.key === 'Enter' &&
+    !event.shiftKey
+  ){
+
+    event.preventDefault(
