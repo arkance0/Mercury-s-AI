@@ -14,6 +14,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 const sessions = new Map();
+let databaseReady = false;
 
 // ============================================================
 // MIDDLEWARE
@@ -35,9 +36,7 @@ async function initDatabase() {
 
   console.log('🔧 Preparando base de datos...');
 
-  // ----------------------------------------------------------
-  // USERS
-  // ----------------------------------------------------------
+  // ---------------- USERS ----------------
 
   await db.query(`
     CREATE TABLE IF NOT EXISTS users (
@@ -49,8 +48,6 @@ async function initDatabase() {
       created_at TIMESTAMPTZ DEFAULT NOW()
     )
   `);
-
-  // Migraciones para instalaciones antiguas
 
   await db.query(`
     ALTER TABLE users
@@ -89,9 +86,8 @@ async function initDatabase() {
     ALTER COLUMN is_admin SET DEFAULT FALSE
   `);
 
-  // El primer usuario de la base queda como administrador.
-  // Así no necesitamos ADMIN_EMAIL.
-
+  // Si todavía no existe ningún admin,
+  // el primer usuario se convierte en admin.
   await db.query(`
     UPDATE users
     SET is_admin = TRUE
@@ -106,23 +102,17 @@ async function initDatabase() {
     )
   `);
 
-  // ----------------------------------------------------------
-  // CHATS
-  // ----------------------------------------------------------
+  // ---------------- CHATS ----------------
 
   await db.query(`
     CREATE TABLE IF NOT EXISTS chats (
       id SERIAL PRIMARY KEY,
-      user_id INTEGER NOT NULL
-        REFERENCES users(id)
-        ON DELETE CASCADE,
-      title TEXT NOT NULL DEFAULT 'Nuevo chat',
+      user_id INTEGER,
+      title TEXT DEFAULT 'Nuevo chat',
       created_at TIMESTAMPTZ DEFAULT NOW(),
       updated_at TIMESTAMPTZ DEFAULT NOW()
     )
   `);
-
-  // Migraciones chats
 
   await db.query(`
     ALTER TABLE chats
@@ -147,7 +137,8 @@ async function initDatabase() {
   await db.query(`
     UPDATE chats
     SET title = 'Nuevo chat'
-    WHERE title IS NULL OR title = ''
+    WHERE title IS NULL
+       OR title = ''
   `);
 
   await db.query(`
@@ -162,9 +153,7 @@ async function initDatabase() {
     WHERE updated_at IS NULL
   `);
 
-  // ----------------------------------------------------------
-  // MESSAGES
-  // ----------------------------------------------------------
+  // ---------------- MESSAGES ----------------
 
   await db.query(`
     CREATE TABLE IF NOT EXISTS messages (
@@ -176,9 +165,6 @@ async function initDatabase() {
       created_at TIMESTAMPTZ DEFAULT NOW()
     )
   `);
-
-  // ESTA ES LA PARTE QUE ARREGLA TU ERROR:
-  // "column chat_id of relation messages does not exist"
 
   await db.query(`
     ALTER TABLE messages
@@ -293,7 +279,8 @@ function verifyPassword(
 function createSession(user) {
 
   const token =
-    crypto.randomBytes(32)
+    crypto
+      .randomBytes(32)
       .toString('hex');
 
   sessions.set(
@@ -341,6 +328,17 @@ function getSession(req) {
 
 function auth(req, res, next) {
 
+  if (!databaseReady) {
+
+    return res
+      .status(503)
+      .json({
+        success: false,
+        error:
+          'La base de datos todavía está iniciando. Inténtalo de nuevo en unos segundos.'
+      });
+  }
+
   const session =
     getSession(req);
 
@@ -359,10 +357,6 @@ function auth(req, res, next) {
 
   next();
 }
-
-// ============================================================
-// ADMIN MIDDLEWARE
-// ============================================================
 
 function admin(req, res, next) {
 
@@ -453,7 +447,7 @@ async function saveMessage(
 }
 
 // ============================================================
-// ROOT
+// FRONTEND
 // ============================================================
 
 app.get(
@@ -486,6 +480,7 @@ app.get(
         success: true,
         status: 'online',
         database: 'connected',
+        databaseReady,
         databaseTime: result.now,
         uptime: process.uptime(),
         timestamp:
@@ -496,15 +491,16 @@ app.get(
 
       console.error(
         'HEALTH ERROR:',
-        error
+        error.message
       );
 
       res
-        .status(500)
+        .status(503)
         .json({
           success: false,
           status: 'online',
           database: 'error',
+          databaseReady: false,
           error: error.message
         });
     }
@@ -551,6 +547,17 @@ app.post(
   async (req, res) => {
 
     try {
+
+      if (!databaseReady) {
+
+        return res
+          .status(503)
+          .json({
+            success: false,
+            error:
+              'La base de datos todavía está iniciando.'
+          });
+      }
 
       const email =
         String(
@@ -719,6 +726,17 @@ app.post(
   async (req, res) => {
 
     try {
+
+      if (!databaseReady) {
+
+        return res
+          .status(503)
+          .json({
+            success: false,
+            error:
+              'La base de datos todavía está iniciando.'
+          });
+      }
 
       const email =
         String(
@@ -1137,6 +1155,4 @@ app.get(
   }
 );
 
-// ============================================================
-// DELETE CHAT
-// ==================================
+// =============================================
